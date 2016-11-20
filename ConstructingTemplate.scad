@@ -1,15 +1,30 @@
+/*
+VirToCut - Dynamical Plate-Saw-Machine
+Copyright (C) 2016  Benjamin Hirmer - hardy at virtoreal.net
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 $fn = 30; // Resolution of Round Objects
 
 // TODO:
 //
 // Gedanken:
-// - Unter den Tool-Carrier eine Anpresshilfe (z.B 2. 608ZZ Lager) die das Material auf die Platte drücken während der Toolcarrier zum Schneiden über die Arbeitsplatte fährt
 // - Klammern mit dem man das Werkstück von Vorn befestigen kann
-// - Bilder mit der Beschriftung der einzenen Variablen für die Techniker-Dokumentation
 
 // Beim drucken aufgefallen:
-// - Smooth Rods 12mm zu klein!
-// - Der zweite Teil des Schlittens verursacht Fehler in der STL Datei
+// - Der zweite Teil des Schlittens verursacht Fehler in der STL Datei, musste mit Slic3r korrigiert werden
 // - Energy Chain Struktur muss etwas angepasst werden da Säge im weg
 // - Energy Chain Struktur (zum einhängen) sollte in der Vollansicht passend plaziert werden
 
