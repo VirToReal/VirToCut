@@ -48,7 +48,7 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
         self.M114Check = re.compile('[xX+:]{2}([0-9.]{1,15})+\s[yY:]{2}([0-9.]{1,15})+\s[zZ:]{2}([0-9.]{1,15})+\s') #RegEx - String auf M114 Antwort prüfen und Achsen-Positionen in Gruppen aufteilen
         self.PosCheck = re.compile('[gG0-3]{1,3}|\s{1,2}[xX]-?([0-9.]{1,15})|\s[yY]-?([0-9.]{1,15})|\s[zZ]-?([0-9.]{1,15})') #RegEx - String auf G0-3 Prüfen und Achsen-Positionen in Gruppen aufteilen (RegEx String ist für "findall" vorbereitet)
         self.cutting_mask_distances = re.compile('[Aa]-?([0-9.]{1,15})|[Bb]-?([0-9.]{1,15})') #RegEx - String auf Vorschubdistanz und Schnittlänge prüfen (RegEx String ist für "findall" vorbereitet)
-        self.__checknext = False # Boolische Variable die ihren Zustand wechselt wenn das gesendete Kommando 'M114' war
+        self.__checknext = False # Boolische Variable die ihren Zustand wechselt wenn das gesendete Kommando 'M114/G28' war
 
 
     def verbose (self, verbose, text, infobar=False): #Werkzeug zum senden von Meldetexten ins Terminal und den Debugger(Infobar)
@@ -113,10 +113,15 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
 
             if user == 0 or user == 1: # Koordinaten abfragen bei antworten von Arduino, und bei manuellen Eingaben über Eingabezeile
                 if self.__checknext: # Script mitteilen das der "text" Koordinaten enthält
-                    self.check_coords('M114', text)
+                    if self.__checknext == 'M114':
+                        self.check_coords('M114', text)
+                    elif self.__checknext == 'G28':
+                        self.check_coords('G28', text)
                     self.__checknext = False
                 elif text == 'M114': # Wenn nicht, prüfen ob die Anfrage nach Koordinaten darin steht
-                    self.__checknext = True
+                    self.__checknext = 'M114'
+                elif text == 'G28': # Wenn auch nicht, prüfen ob die Maschine 'gehomed' wurde
+                    self.__checknext = 'G28'
                 else: #Prüfe ob der Text Bewegungs-Koordinaten enthält
                     self.check_coords('G0-3', text)
 
@@ -125,14 +130,21 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
 
 
     def check_coords (self, matchtype, position_response): #Koordinaten interpretieren und Darstellen
-        if matchtype == 'M114':
-            if self.M114Check.match(position_response): # Prüfe ob erhaltene Nachricht auf das Muster einer M114 Antwort passt
+        if matchtype == 'M114': # Prüfe ob erhaltene Nachricht auf das Muster einer M114 Antwort passt
+            if self.M114Check.match(position_response):
                 regline = self.M114Check.match(position_response) # Muster assoziieren
                 self.__label_position[0].set_text(regline.group(1)) # Setze Label X
                 self.__label_position[1].set_text(regline.group(2)) # Setze Label Y
                 self.__label_position[2].set_text(regline.group(3)) # Setze Label Z
-        elif matchtype == 'G0-3':
-            if self.PosCheck.findall(position_response): # Prüfe ob erhaltene Nachricht auf das Muster von zu bewegenden Achsen passt
+        elif matchtype == 'G28': # Prüfe ob evtl die Achsen zurück gesetzt wurden
+            if self.M114Check.match(position_response):
+                regline = self.M114Check.match(position_response) # Muster assoziieren
+                self.__label_position[0].set_text(regline.group(1)) # Setze Label X
+                self.__label_position[1].set_text(regline.group(2)) # Setze Label Y
+                self.__label_position[2].set_text(regline.group(3)) # Setze Label Z
+                self.__label_position[3].set_text(regline.group(2)) # Setze Label Y (Absolut)
+        elif matchtype == 'G0-3': # Prüfe ob erhaltene Nachricht auf das Muster von zu bewegenden Achsen passt
+            if self.PosCheck.findall(position_response):
                 regline = self.PosCheck.findall(position_response) # Muster assoziieren und mehrmals anwenden bis nichts mehr übrig bleibt (Falls alle drei Achsen angegeben wurden)
                 for i in regline: # Durchlaufe Matches, und greife jeweils die gefundene Achse heraus
                     if i[0]:

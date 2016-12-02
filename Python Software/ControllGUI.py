@@ -95,7 +95,8 @@ class Windows:
         self.if_st_pos_label_x = self.builder.get_object("IF_ST_POS_LABEL_X") #Label - Information/Status Position - Position der Säge
         self.if_st_pos_label_y = self.builder.get_object("IF_ST_POS_LABEL_Y") #Label - Information/Status Position - Position des Vorschubs
         self.if_st_pos_label_z = self.builder.get_object("IF_ST_POS_LABEL_Z") #Label - Information/Status Position - Position der Anpresshilfe
-        self.if_st_pos_tuple = (self.if_st_pos_label_x, self.if_st_pos_label_y, self.if_st_pos_label_z)
+        self.if_st_pos_label_ya = self.builder.get_object("IF_ST_POS_LABEL_YA") #Label - Information/Status Position - Absolute Position des Vorschubs
+        self.if_st_pos_tuple = (self.if_st_pos_label_x, self.if_st_pos_label_y, self.if_st_pos_label_z, self.if_st_pos_label_ya)
 
         self.if_st_fsrevealer1 = self.builder.get_object("IF_ST_FSRevealer1") #Revealer - Information/Status Fortschritt - Blendet Fortschrittsanzeige ein/aus
         self.if_st_fs_rowbar = self.builder.get_object("IF_ST_FS_RowBar") #LevelBar - Information/Status Fortschritt - Fortschrittsanzeige für abgearbeitete Zeilen G-Code

@@ -184,6 +184,16 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
             GPIO.output(pinout, True)
         elif effect == "OFF":
             GPIO.output(pinout, False)
+        elif effect == "MovementError":
+            GPIO.output(11, True)
+            GPIO.output(19, True)
+            GPIO.output(13, True)
+            GPIO.output(21, True)
+            time.sleep(duration)
+            GPIO.output(11, False)
+            GPIO.output(19, False)
+            GPIO.output(13, False)
+            GPIO.output(21, False)
         elif effect == "LampTest":
             GPIO.output(11, True)
             GPIO.output(13, True)

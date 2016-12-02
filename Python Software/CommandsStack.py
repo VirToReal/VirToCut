@@ -20,13 +20,12 @@
 #TODO
 # Umkehrspiel auf Y und Z Achse berücksichtigen
 # Beschleunigungen setzen für Hardware-Buttons
-# Beschleunigungen in Marlin setzen
+# Beschleunigungen in Marlin setzen + Abstand_Saegeblatt_zum_Materialanschlag mit Offset "druckbett"
 # Verfahrstrecke Z Achse - Testen
 # Schnittgeschwindigkeit automatisch interpretieren lassen beim Schneiden, rückfahrt immer mit maximaler Geschwindigkeit
 # Absolute Position generieren von Y-Achse, maximale Verfahrstrecke darauf kontrollieren lassen (G28) kallibriert dies
 # zurückzählen der Y-Achse bei Rückwärtsbewegung über Buttons funktioniert nicht
 # Netzteil automatisch an,- und abschalten (ControlGUI.py)
-# Parameter hinzufügen - Offeset säge von Endstop bis links Material
 
 class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
@@ -226,7 +225,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     elif checkrow[0] == 2: # Aufforderung zur Aktion des Benutzers erhalten (Material richtig einlegen)
                         if not rotated: # Prüfe auf einen inkonsistenten Zustand der auftreten kann wenn die Schneivorlage falsch ist
                             self.tools.verbose(self._verbose, "Aufforderung zum drehen des Materials noch nicht erfolgt, Schneidvorlage scheint fehlerhaft zu sein")
-                            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
                         else:
                             self.gcodestack.append(gcodestring)
                             self.maxvlstack.append(max(maxvalues)) # Füge maximale Schnittweite dieses G-Code Blocks in Liste hinzu
@@ -234,7 +233,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                             gcodestring = None
                 else:
                     self.tools.verbose(self._verbose, "Nichts auswertbares in Schneidvorlage Zeile: '" + str(rowcount) + "' gefunden")
-                    self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                    self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
                 rowcount += 1 #Fehlerangabenseite hochzählen
 
         if self.__error: #Fehler aufgetreten beim überprüfen der Schneidvorlage
@@ -407,7 +406,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             else:
                 return self._gcode['HOME']
         else:
-            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
     def vorherig (self): #Arbeitsschritt - Gcode der vor den Programmstart aufgerufen wird
@@ -428,12 +427,12 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     else:
                         return newgcode #Angepassten G-Code zurück zum Programmgenerator
                 else:
-                    self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                    self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
             else:
-                self.tools.verbose(self._verbose, "kann Material nicht arretieren, da kein Särke für das Material zum anpressen erhalten")
-                self.__error = '1' #Teile Benutzer mit, das Probeleme aufgetreten sind
+                self.tools.verbose(self._verbose, "kann Material nicht arretieren, da keine Särke für das Material zum anpressen erhalten")
+                self.__error = '1' #Teile Benutzer mit, das Probleme aufgetreten sind
         else:
-            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
     def schneiden (self, user, distance, materialthickness=None): #Arbeitsschritt - Gcode der beim Schneiden erzeugt wird
@@ -456,57 +455,88 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     if newgcode:
                         return newgcode #Angepassten G-Code zurück zum Programmgenerator
                     else:
-                        self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                        self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
             else:
                 self.tools.verbose(self._verbose, "Schnittlänge überschreitet die Eingestellte fahrbare Stecke der Säge")
-                self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
         else:
-            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
     def vorschub (self, user, distance): #Arbeitsschritt - Gcode der beim Vorschub erzeugt wird
-        if float(self._label_position[0].get_text()) == 0:
+        if float(self._label_position[0].get_text()) < self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag'] or float(self._label_position[0].get_text()) >= self.maxvlstack[self.gcodeblock]: #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
             if user:
-                if distance > 999:
-                    self._serial.sending('G91\nG0 Y' + str(distance) + '\nG90\nM114', user) #Vorschub an den seriellen Port
+                if not 'N/V' in self._label_position[3].get_text():
+                    if distance > 999: #Vorschub nach ganz vorne
+                            distance = self._settings['PDV']['Fahrbare_Strecke'] - float(self._label_position[3].get_text()) #Bilde restliche Distanz aus momentaner Position und eingestellter fahrbaren Strecke
+                            self._serial.sending('G91\nG0 Y' + str(distance) + '\nG90\nM114', user) #Vorschub an den seriellen Port senden
+                            self._label_position[1].set_text(str(float(self._label_position[1].get_text()) + distance)) #Y-Distanz hochzählen
+                            self._label_position[3].set_text(str(self._settings['PDV']['Fahrbare_Strecke'])) #Absolute Y-Distanz hochzählen
+                    else:
+                        if distance + float(self._label_position[3].get_text()) <= self._settings['PDV']['Fahrbare_Strecke']:
+                            self._serial.sending('G91\nG0 Y' + str(distance) + '\nG90', user) #Vorschub an den seriellen Port
+                            self._label_position[1].set_text(str(float(self._label_position[1].get_text()) + distance)) #Y-Distanz hochzählen
+                            self._label_position[3].set_text(str(float(self._label_position[3].get_text()) + distance)) #Absolute Y-Distanz hochzählen
+                        else:
+                            self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs", True)
+                            self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
                 else:
-                    self._serial.sending('G91\nG0 Y' + str(distance) + '\nG90', user) #Vorschub an den seriellen Port
-                    self._label_position[1].set_text(str(float(self._label_position[1].get_text()) + distance))
+                    self.tools.verbose(self._verbose, "keine absolute Position des Vorschubs vorhanden, bitte Maschine vorher 'homen'!", True)
             else:
-                if distance <= self._settings['PDV']['Fahrbare_Strecke']:
+                if distance + float(self._label_position[3].get_text()) <= self._settings['PDV']['Fahrbare_Strecke']:
                     if self.checkgcode('VORSCHUB'):
                         newgcode = self.checkvalue(self._gcode['VORSCHUB'], distance, False, 'VORSCHUB') #G-Code zurück zum Programmgenerator
                         if newgcode:
                             return newgcode #Angepassten G-Code zurück zum Programmgenerator
                         else:
-                            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
                     else:
-                        self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                        self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
                 else:
-                    self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die Eingestellte fahrbare Stecke des Vorschubs")
-                    self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                    self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs")
+                    self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
         else:
-            self.tools.verbose(self._verbose, "Vorschub nicht möglich da Säge nicht auf '0', Material könnte Sägeblatt zerstören")
-            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+            self.tools.verbose(self._verbose, "Vorschub nicht möglich da Sägeblatt im Weg")
+            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
-    def rueckfahrt (self, user, distance): #Arbeitsschritt - Gcode der bei der Rückfahrt erzeugt wird
+    def rueckfahrt (self, user, distance): #Arbeitsschritt - G-Gode der bei der Rückfahrt erzeugt wird
         if user:
-            if distance == 0:
-                self._serial.sending('G0 Y0', user) #Rückfahrt an den seriellen Port
-                self._label_position[1].set_text('0')
+            if not 'N/V' in self._label_position[3].get_text():
+                if distance == 0: #Vorschub ganz zurück
+                    distance = self._label_position[3].get_text() #Hole absolut zurück gelegte Y-Stecke und fahre danach zu '0'
+                    self._serial.sending('G92 Y' + distance + '\nG0 Y0', user) #Rückfahrt an den seriellen Port senden
+                    self._label_position[1].set_text('0') #Y-Distanz auf '0' setzen
+                    self._label_position[3].set_text('0') #Absolute Y-Distanz auf '0' setzen
+                else:
+                    if float(self._label_position[1].get_text()) == 0 and float(self._label_position[3].get_text()) > 0: #Ausgangspunkt von relativen Vorschub erreicht
+                        if float(self._label_position[3].get_text()) >= distance: #Die definierte Distanz passt noch in den zurückzulegenden Weg
+                            self._serial.sending('G92 Y' + distance + '\nG0 Y0', user) #Rückfahrt an den seriellen Port senden
+                            self._label_position[3].set_text(str(float(self._label_position[3].get_text()) - distance)) #Absolute Y-Distanz herunterzählen
+                        elif float(self._label_position[3].get_text()) < distance: #Die definierte Distanz passt nicht mehr in den zurückzulegenden Weg, Reststrecke wird ermittelt und gesendet
+                            self._serial.sending('G92 Y' + self._label_position[3].get_text() + '\nG0 Y0', user) #Rückfahrt an den seriellen Port senden
+                            self._label_position[3].set_text('0') #Absolute Y-Distanz auf '0' setzen
+                            self.gpioner.ButtonPressed(0, 1, 'MovementError', 2) #Lasse Bewegungs-Buttons auf Bedienpaneel 2x blinken um Anwender zu signalisieren das er nun mit dem Vorschub auf absolut '0' steht
+                    elif float(self._label_position[1].get_text()) < distance: #Die relative Distanz passt nicht mehr in die zurückzulegende Strecke, Reststrecke wird ermittelt und gesendet
+                        self._serial.sending('G91\nG0 Y-' + self._label_position[1].get_text() + '\nG90', user) #Rückfahrt an den seriellen Port senden
+                        self._label_position[1].set_text('0') #Y-Distanz auf '0' setzen
+                        self._label_position[3].set_text(str(float(self._label_position[3].get_text()) - float(self._label_position[1].get_text()))) #Absolute Y-Distanz herunterzählen
+                        self.gpioner.ButtonPressed(0, 1, 'MovementError', 1) #Lasse Bewegungs-Buttons auf Bedienpaneel 1x blinken um Anwender zu signalisieren das er nun am Ausgangspunkt des Vorschubs ist
+                    elif float(self._label_position[1].get_text()) >= distance:
+                        self._serial.sending('G91\nG0 Y-' + str(distance) + '\nG90', user) #Rückfahrt an den seriellen Port senden
+                        self._label_position[1].set_text(str(float(self._label_position[1].get_text()) - distance)) #Y-Distanz herunterzählen
+                        self._label_position[3].set_text(str(float(self._label_position[3].get_text()) - distance)) #Absolute Y-Distanz herunterzählen
             else:
-                self._serial.sending('G91\nG0 Y-' + str(distance) + '\nG90', user) #Rückfahrt an den seriellen Port
-                self._label_position[1].set_text(str(yvalue - distance))
+                self.tools.verbose(self._verbose, "keine absolute Position des Vorschubs vorhanden, bitte Maschine vorher 'homen'!", True)
         else:
             if self.checkgcode('RUECKFAHRT'):
                 newgcode = self.checkvalue(self._gcode['RUECKFAHRT'], distance, False, 'RUECKFAHRT') #G-Code zurück zum Programmgenerator
                 if newgcode:
                     return newgcode #Angepassten G-Code zurück zum Programmgenerator
                 else:
-                    self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                    self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
             else:
-                self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
     def freigeben (self, user): #Arbeitsschritt - Gcode der bei der beim Freigeben erzeugt wird
@@ -518,6 +548,6 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 else:
                     return newgcode #Angepassten G-Code zurück zum Programmgenerator
             else:
-                self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+                self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
         else:
-            self.__error = True #Teile Benutzer mit, das Probeleme aufgetreten sind
+            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind

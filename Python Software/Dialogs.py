@@ -70,6 +70,7 @@ class DIA_CONFIG: #Klasse für Konfigurations-Dialog
         self.nb_pm_pds_nzsa = self.builder.get_object("NB_PM_PDS_NZSA") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Nachlaufzeit Säge
         self.nb_pm_pds_nzst = self.builder.get_object("NB_PM_PDS_NZST") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Nachlaufzeit Staubsauger
         self.nb_pm_pds_fs = self.builder.get_object("NB_PM_PDS_FS") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Fahrbare Strecke
+        self.nb_pm_pds_asm = self.builer.get_object("NB_PM_PDS_ASM") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Abstand Sägeblatt zum Materialanschlag
 
         self.nb_pm_pdv_bv = self.builder.get_object("NB_PM_PDV_BV") #Spin-Button - Notebook/Parameter/Parametrieren des Vorschubs/Be,-Endschleunigung des Vorschub-Anschlags
         self.nb_pm_pdv_fs = self.builder.get_object("NB_PM_PDV_FS") #Spin-Button - Notebook/Parameter/Parametrieren des Vorschubs/Fahrbare Strecke
@@ -120,6 +121,7 @@ class DIA_CONFIG: #Klasse für Konfigurations-Dialog
             self.nb_pm_pds_nzsa.set_value(self.configdata['PDS']['Nachlaufzeit_Saege'])
             self.nb_pm_pds_nzst.set_value(self.configdata['PDS']['Nachlaufzeit_Staubsauger'])
             self.nb_pm_pds_fs.set_value(self.configdata['PDS']['Fahrbare_Strecke'])
+            self.nb_pm_pds_asm.set_value(self.configdata['PDS']['Abstand_Saegeblatt_zum_Materialanschlag'])
 
             self.nb_pm_pdv_bv.set_value(self.configdata['PDV']['Be_End-Schleunigung_Vorschub'])
             self.nb_pm_pdv_fs.set_value(self.configdata['PDV']['Fahrbare_Strecke'])
@@ -178,7 +180,8 @@ class DIA_CONFIG: #Klasse für Konfigurations-Dialog
                         'Schnittbreite' : self.nb_pm_pds_sb.get_value(),
                         'Nachlaufzeit_Saege' : self.nb_pm_pds_nzsa.get_value(),
                         'Nachlaufzeit_Staubsauger' : self.nb_pm_pds_nzst.get_value(),
-                        'Fahrbare_Strecke' : self.nb_pm_pds_fs.get_value()},
+                        'Fahrbare_Strecke' : self.nb_pm_pds_fs.get_value(),
+                        'Abstand_Saegeblatt_zum_Materialanschlag' : self.nb_pm_pds_asm.get_value()},
             'PDV' : {
                         'Be_End-Schleunigung_Vorschub' : self.nb_pm_pdv_bv.get_value(),
                         'Fahrbare_Strecke' : self.nb_pm_pdv_fs.get_value(),
