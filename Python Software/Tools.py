@@ -115,9 +115,9 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
                 if self.__checknext: # Script mitteilen das der "text" Koordinaten enthält
                     if self.__checknext == 'M114':
                         self.check_coords('M114', text)
+                        self.__checknext = False #Bei 'M114'direkt zurücksetzen da Antwort direkt auf die Abfrage folgt
                     elif self.__checknext == 'G28':
                         self.check_coords('G28', text)
-                    self.__checknext = False
                 elif text == 'M114': # Wenn nicht, prüfen ob die Anfrage nach Koordinaten darin steht
                     self.__checknext = 'M114'
                 elif text == 'G28': # Wenn auch nicht, prüfen ob die Maschine 'gehomed' wurde
@@ -143,6 +143,7 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
                 self.__label_position[1].set_text(regline.group(2)) # Setze Label Y
                 self.__label_position[2].set_text(regline.group(3)) # Setze Label Z
                 self.__label_position[3].set_text(regline.group(2)) # Setze Label Y (Absolut)
+                self.__checknext = False #Nach Erhalt der absoluten Koordinaten nicht weiter auf Antworten lauschen
         elif matchtype == 'G0-3': # Prüfe ob erhaltene Nachricht auf das Muster von zu bewegenden Achsen passt
             if self.PosCheck.findall(position_response):
                 regline = self.PosCheck.findall(position_response) # Muster assoziieren und mehrmals anwenden bis nichts mehr übrig bleibt (Falls alle drei Achsen angegeben wurden)
