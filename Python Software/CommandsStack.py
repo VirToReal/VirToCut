@@ -142,15 +142,11 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
         elif buttontype == "HW": # Hardware-Buttons
             if function == "VV" and not self.blockbuttons: # Hardware-Button - Vorschub vor
-                self.vorschub(2, )
-                self._serial.sending('G91\nG0 Y%s\nG90' % str(self._settings['HPDS']['Schrittweite_Vorschub']), 2)
-                self._label_position[1].set_text(str(yvalue + self._settings['HPDS']['Schrittweite_Vorschub']))
+                self.vorschub(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
             elif function == "VZ" and not self.blockbuttons: # Hardware-Button - Vorschub zurück
-                self._serial.sending('G91\nG0 Y-%s\nG90' % str(self._settings['HPDS']['Schrittweite_Vorschub']), 2)
-                self._label_position[1].set_text(str(yvalue - self._settings['HPDS']['Schrittweite_Vorschub']))
+                self.rueckfahrt(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
             elif function == "VGZ" and not self.blockbuttons: # Hardware-Button - Vorschub ganz zurück
-                self._serial.sending('G91\nG0 Y-1000\nG90', 2)
-                self._label_position[1].set_text('0')
+                self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
             elif function == "SV" and not self.blockbuttons: # Hardware-Button - Säge vor
                 self._serial.sending('G91\nG0 X%s\nG90' % str(self._settings['HPDS']['Schrittweite_Saege']), 2)
                 self._label_position[0].set_text(str(xvalue + self._settings['HPDS']['Schrittweite_Saege']))
@@ -267,7 +263,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             if self.gcodeblock == 0 and not confirmed: #Sicherstellen ob am Anfang der G-Code Blöcke
                 if self._settings['HPDS']['Start_anfordern']: #Prüfen ob Hardware-Button gedrückt werden muss
                     self.tools.infobar('INFO', "Bitte Vor-Ort an der Säge den Start bestätigen") #Weise Anwender darauf hin, das er den Beginn über die Hardware bestätigen muss
-                    self.gpioner.ButtonBlink(23, 1, "ONOFF", True) #Lasse 'Schneiden' Button blinken bis Anwender darauf drückt
+                    self.gpioner.ButtonBlink(23, 0.5, "ONOFF", True) #Lasse 'Schneiden' Button blinken bis Anwender darauf drückt
                     self.__confirmedstate = 'HW' #Bestätigungen sollten über die Hardware erfolgen
                 else:
                     gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0])) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
@@ -511,7 +507,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 else:
                     if float(self._label_position[1].get_text()) == 0 and float(self._label_position[3].get_text()) > 0: #Ausgangspunkt von relativen Vorschub erreicht
                         if float(self._label_position[3].get_text()) >= distance: #Die definierte Distanz passt noch in den zurückzulegenden Weg
-                            self._serial.sending('G92 Y' + distance + '\nG0 Y0', user) #Rückfahrt an den seriellen Port senden
+                            self._serial.sending('G92 Y' + str(distance) + '\nG0 Y0', user) #Rückfahrt an den seriellen Port senden
                             self._label_position[3].set_text(str(float(self._label_position[3].get_text()) - distance)) #Absolute Y-Distanz herunterzählen
                         elif float(self._label_position[3].get_text()) < distance: #Die definierte Distanz passt nicht mehr in den zurückzulegenden Weg, Reststrecke wird ermittelt und gesendet
                             self._serial.sending('G92 Y' + self._label_position[3].get_text() + '\nG0 Y0', user) #Rückfahrt an den seriellen Port senden

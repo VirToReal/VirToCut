@@ -123,7 +123,7 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
         threading._start_new_thread(self.LED, (pinout, duration, effect, loops))
 
 
-    def ButtonBlink(self, pinout, effect, status): # Erzeuge eine Funktion die Buttons Eventgesteuert blinken lässt
+    def ButtonBlink(self, pinout, duration, effect, status): # Erzeuge eine Funktion die Buttons Eventgesteuert blinken lässt
         self.blinkthread_stop = threading.Event()
         if status:
             threading._start_new_thread(self.LED, (pinout, duration, effect, 0))
