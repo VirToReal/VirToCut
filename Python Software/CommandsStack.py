@@ -134,7 +134,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             elif function == "S" and not self.blockbuttons: # Software-Button - Schneiden
                 self.schneiden(True, xvalue, self.getmaterialthickness())
             elif function == "H" and not self.blockbuttons: # Software-Button - Homen
-                self.home(2) #Code 2 = Benutzerausgeführt
+                self.home(1) #Code 1 = Benutzerseitig ausgeführt
             elif function == "AP" and not self.blockbuttons: # Software-Button - Anpressen
                 self.anpressen(2, self.getmaterialthickness()) #Code 2 = Benutzerausgeführt
             elif function == "AH" and not self.blockbuttons: # Software-Button - Anheben
@@ -254,7 +254,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 self.tools.verbose(self._verbose, "Schneidvorlage gibt vor nur horizontale Schnitte vorzulegen, will jedoch das Material drehen lassen, Schneidvorlage scheint fehlerhaft zu sein", True)
 
 
-    def sequenced_sending (self, step, confirmed=False): #Sendet auf Befehl G-Code Sequenzen
+    def sequenced_sending (self, step, confirmed=False): #Sendet auf Befehl G-Code Sequenzen an den Arduino
         if step == 1 and not self.svprogress: #Ersten G-Code Block Abarbeiten
             self._progress_items[0].set_reveal_child(True) #Zeige Fortschrittsanzeige
             self.svprogress = True #Aktiviere Fortschritt
@@ -263,17 +263,17 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             if self.gcodeblock == 0 and not confirmed: #Sicherstellen ob am Anfang der G-Code Blöcke
                 if self._settings['HPDS']['Start_anfordern']: #Prüfen ob Hardware-Button gedrückt werden muss
                     self.tools.infobar('INFO', "Bitte Vor-Ort an der Säge den Start bestätigen") #Weise Anwender darauf hin, das er den Beginn über die Hardware bestätigen muss
-                    self.gpioner.ButtonBlink(23, 0.5, "ONOFF", True) #Lasse 'Schneiden' Button blinken bis Anwender darauf drückt
+                    self.gpioner.ButtonBlink(23, 1, "ONOFF", True) #Lasse 'Schneiden' Button blinken bis Anwender darauf drückt
                     self.__confirmedstate = 'HW' #Bestätigungen sollten über die Hardware erfolgen
                 else:
                     gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0])) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
-                    self._serial.sending(gcode, 1) #Sende direkt ersten Block an Maschine
+                    self._serial.sending(gcode, 0) #Sende direkt ersten Block an Maschine
                     self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                     self.blockbuttons = True #Alle Buttons sperren
                     self.__confirmedstate = 'SW' #Bestätigungen sollten über die Software erfolgen
             elif self.gcodeblock == 0 and confirmed == self.__confirmedstate:
                 gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0])) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
-                self._serial.sending(gcode, 1) #Sende nach Bestätigung über Hardware ersten Block an Maschine
+                self._serial.sending(gcode, 0) #Sende nach Bestätigung über Hardware ersten Block an Maschine
                 self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
             else:
                 self.tools.verbose(self._verbose, "Es sollen G-Code Sequenzen gesendet werden, jedoch von der falschen Funktion -> Fehler im Programm", True)
@@ -286,7 +286,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.blockbuttons = False #Alle Buttons freigeben
                     elif self.__confirmedstate == confirmed: #Anwender bestätigt neuen Schnitt
                         gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock])) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
-                        self._serial.sending(gcode, 1) #Sende jeweils nächsten G-Code Block
+                        self._serial.sending(gcode, 0) #Sende jeweils nächsten G-Code Block
                         self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                         self.blockbuttons = True #Alle Buttons sperren
                     else:
@@ -297,7 +297,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.blockbuttons = False #Alle Buttons freigeben
                     elif self.__confirmedstate == confirmed: #Anwender bestätigt neuen Schnitt
                         gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock])) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
-                        self._serial.sending(gcode, 1) #Sende jeweils nächsten G-Code Block
+                        self._serial.sending(gcode, 0) #Sende jeweils nächsten G-Code Block
                         self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                         self.blockbuttons = True #Alle Buttons sperren
             else:
@@ -335,7 +335,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     def cutting_template_load (self, filepath): # Lade Schneidvorlage aus Datei in zur veranschaulichung in einen Textbuffer und übergebe sie den Interpreter der diese auf Gültigkeit überprüft
         if self.tools.check_file(self._verbose, filepath):
-            self._schneivorlage_filepath = filepath
+            self._schneivorlage_filepath = filepathmaxvlstack
             self._schneidvorlage_items[0].set_text("Datei geladen: " + str(filepath)) # Stelle geladene Dateipfad in Schneidvorlage dar
             with open (filepath, 'r') as f:
                 data = f.read()
@@ -460,7 +460,21 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def vorschub (self, user, distance): #Arbeitsschritt - Gcode der beim Vorschub erzeugt wird
-        if float(self._label_position[0].get_text()) < self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag'] or float(self._label_position[0].get_text()) >= self.maxvlstack[self.gcodeblock]: #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
+        if not self.svprogress: #Wenn kein Programm läuft
+            try: #Versuchen ob bereits maximale längen erfasst wurden
+                if len(self.maxvlstack) == 0: #und auch kein max_cut Wert vorliegt
+                    max_cut = 0 #unbegrenzt schneiden lassen
+                else:
+                    max_level = max(self.maxvlstack) #Hole aus letztem Stack
+                    max_cut = max(max_level) #Den größten Wert
+                    #TODO aber was passiert wenn Anwender Material menuell einlegt das nicht mit dem programm geschnitten werden soll sondern eben manuell.... hmmhm
+                    #TODO zudem sollte geprüft werden ob benutzer im Schneiden-Arbeitsschritt den max_cut wert nutzt, um so zu erschließen das Säge entgegengesetzt schneidet
+            except:
+                max_cut = 0 #unbegrenzt schneiden lassen
+        else: #Falls programm läuft
+            max_cut = self.maxvlstack[self.gcodeblock] #Den Wert dem aktiven Block entnehmen
+
+        if float(self._label_position[0].get_text()) < self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag'] or float(self._label_position[0].get_text()) >= max_cut: #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
             if user:
                 if not 'N/V' in self._label_position[3].get_text():
                     if distance > 999: #Vorschub nach ganz vorne
@@ -492,7 +506,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs")
                     self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
         else:
-            self.tools.verbose(self._verbose, "Vorschub nicht möglich da Sägeblatt im Weg")
+            self.tools.verbose(self._verbose, "Vorschub nicht möglich da Sägeblatt im Weg", True)
             self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
