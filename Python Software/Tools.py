@@ -32,10 +32,10 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
     def __init__ (self, DebugBuffer, TerminalBuffer, label_position, infobar_items): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
         self.__DebugBuffer = DebugBuffer # Notebook/Debug - Textfeld
         self.__TerminalBuffer = TerminalBuffer # Terminal
-        self.TerminalBufferTags = (self.__TerminalBuffer.create_tag("machine", foreground="#666666"), # Erzeuge Formatierungs-Tag "machine" für über das Programm gesendeten G-Code in den Terminal TextBuffer
+        self.TerminalBufferTags = (self.__TerminalBuffer.create_tag("machine", foreground="#000000"), # Erzeuge Formatierungs-Tag "machine" für über das Programm gesendeten G-Code in den Terminal TextBuffer
                                    self.__TerminalBuffer.create_tag("user", weight=Pango.Weight.BOLD), # Erzeuge Formatierungs-Tag "user" für eigene Nachrichten in den Terminal TextBuffer
                                    self.__TerminalBuffer.create_tag("button", foreground="#0066ff"), # Erzeuge Formatierungs-Tag "button" für über Buttons ausgelöste Nachrichten für den Terminal TextBuffer
-                                   self.__TerminalBuffer.create_tag("idle", foreground="#0066ff")) # Erzeuge Formatierungs-Tag "idle" für abgefangene Nachrichten für den Terminal TextBuffer
+                                   self.__TerminalBuffer.create_tag("idle", foreground="#666666")) # Erzeuge Formatierungs-Tag "idle" für abgefangene Nachrichten für den Terminal TextBuffer
         self.__DebugBufferToggle = False # Notebook/Debug - Standardmäßig ausschalten
         self.__homedir = os.environ['HOME'] # Lese Absoluten Home-Pfad aus Umgebungsvariable
         self.__progdir = os.path.join(self.__homedir, ".hysac")
@@ -46,7 +46,7 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
 
         #Folgende RegEx Kombinationen wurden mit den Editor von https://regex101.com/ erzeugt:
         self.M114Check = re.compile('[xX+:]{2}([0-9.]{1,15})+\s[yY:]{2}([0-9.]{1,15})+\s[zZ:]{2}([0-9.]{1,15})+\s') #RegEx - String auf M114 Antwort prüfen und Achsen-Positionen in Gruppen aufteilen
-        self.PosCheck = re.compile('[gG0-3]{1,3}|\s{1,2}[xX]-?([0-9.]{1,15})|\s[yY]-?([0-9.]{1,15})|\s[zZ]-?([0-9.]{1,15})') #RegEx - String auf G0-3 Prüfen und Achsen-Positionen in Gruppen aufteilen (RegEx String ist für "findall" vorbereitet)
+        self.PosCheck = re.compile('(?i)^[gG0-3]{1,3}(?:\s+x-?(?P<x>[0-9.]{1,15})|\s+y-?(?P<y>[0-9.]{1,15})|\s+z-?(?P<z>[0-9.]{1,15}))*$') #RegEx - String auf G0-3 prüfen und Achsen-Positionen in die Gruppen 'x', 'y', 'z' aufteilen, gG0-3 muss enthalten sein
         self.cutting_mask_distances = re.compile('[Aa]-?([0-9.]{1,15})|[Bb]-?([0-9.]{1,15})') #RegEx - String auf Vorschubdistanz und Schnittlänge prüfen (RegEx String ist für "findall" vorbereitet)
         self.__checknext = False # Boolische Variable die ihren Zustand wechselt wenn das gesendete Kommando 'M114/G28' war
 
@@ -103,7 +103,6 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
 
             elif user == 1: # Darstellung manuell übertragenen Textes über Eingabezeile
                 self.__TerminalBuffer.insert_with_tags(Gtk.TextBuffer.get_end_iter(self.__TerminalBuffer), ctime().split()[3] + " - " + str(text) + '\n', self.TerminalBufferTags[1]) # Text in Terminal ausgeben (An letzte Stelle) mit Eigenvermerk
-                self.check_coords('G0-3', text) #Nach Koordinaten darin suchen
 
             elif user == 2: # Darstellung manuell übertragenen Textes über Button
                 self.__TerminalBuffer.insert_with_tags(Gtk.TextBuffer.get_end_iter(self.__TerminalBuffer), ctime().split()[3] + " - " + str(text) + '\n', self.TerminalBufferTags[2]) # Text in Terminal ausgeben (An letzte Stelle) mit Eigenvermerk
@@ -145,15 +144,14 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
                 self.__label_position[3].set_text(regline.group(2)) # Setze Label Y (Absolut)
                 self.__checknext = False #Nach Erhalt der absoluten Koordinaten nicht weiter auf Antworten lauschen
         elif matchtype == 'G0-3': # Prüfe ob erhaltene Nachricht auf das Muster von zu bewegenden Achsen passt
-            if self.PosCheck.findall(position_response):
-                regline = self.PosCheck.findall(position_response) # Muster assoziieren und mehrmals anwenden bis nichts mehr übrig bleibt (Falls alle drei Achsen angegeben wurden)
-                for i in regline: # Durchlaufe Matches, und greife jeweils die gefundene Achse heraus
-                    if i[0]:
-                        self.__label_position[0].set_text(i[0]) # Setze Label X
-                    if i[1]:
-                        self.__label_position[1].set_text(i[1]) # Setze Label Y
-                    if i[2]:
-                        self.__label_position[2].set_text(i[2]) # Setze Label Z
+            if self.PosCheck.match(position_response):
+                coords = self.PosCheck.match(position_response).groupdict() # Muster assoziieren und Koordinaten heraus lesen
+                if coords['x']:
+                    self.__label_position[0].set_text(coords['x']) # Setze Label X
+                if coords['y']:
+                    self.__label_position[1].set_text(coords['y']) # Setze Label Y
+                if coords['z']:
+                    self.__label_position[2].set_text(coords['z']) # Setze Label Z
 
 
     def check_template (self, checkrow): # Prüft erhaltene Zeile auf Elemente der Schneidvorlage und gibt die Infos zurück
