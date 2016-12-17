@@ -56,6 +56,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
     def load (self): # Lade momentane G-Codes und Einstellungen aus Yaml-Datei
         try: # Versuche G-Code Datei zu laden
             self._gcode = self.tools.yaml_load(self._verbose, ['Config'], 'GCode')
+            self.checkmaxcut_value = self.checkmaxcut() # Prüfe ob die Säge entgegengesetzt schneidet
         except:
             self.tools.verbose(self._verbose, "Konnte GCode-Datei nicht laden, evtl exisitiert diese noch nicht")
             self._gcode = None
@@ -98,6 +99,16 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             else:
                 self.tools.verbose(self._verbose, "kein '<value>' Platzhalter für diesen Arbeitsschritt '" + section + "' gefunden, wird aber in diesen Arbeitsschritt dringend benötigt!")
                 return False
+
+
+    def checkmaxcut (self): # Prüfe ob Säge entgegengesetzt schneidet indem der Arbeitsschritt "Schneiden" auf den Platzhalter '<max_cut>' geprüft wird
+        if self.checkgcode('SCHNEIDEN'): #Prüfe ob Arbeitsschritt angelegt wurde
+            if any(x in self._gcode['SCHNEIDEN'] for x in ['<max_cut>']): #Prüfe Arbeitsschritt "Schneiden" auf Platzhalter
+                return True # Gebe 'True' zurück falls vorhanden
+            else:
+                return False # andernfalls 'False'
+        else:
+            return False # Gebe 'False' zurück falls nicht angelegt
 
 
     def getmaterialthickness (self): # Holt die Auswahl der Materialstärke und gibt diese zurück
@@ -335,7 +346,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     def cutting_template_load (self, filepath): # Lade Schneidvorlage aus Datei in zur veranschaulichung in einen Textbuffer und übergebe sie den Interpreter der diese auf Gültigkeit überprüft
         if self.tools.check_file(self._verbose, filepath):
-            self._schneivorlage_filepath = filepathmaxvlstack
+            self._schneivorlage_filepath = filepath
             self._schneidvorlage_items[0].set_text("Datei geladen: " + str(filepath)) # Stelle geladene Dateipfad in Schneidvorlage dar
             with open (filepath, 'r') as f:
                 data = f.read()
@@ -432,6 +443,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def schneiden (self, user, distance, materialthickness=None): #Arbeitsschritt - Gcode der beim Schneiden erzeugt wird
+        #TODO prüfen bei entgegengesetzten schneiden ob auf max_cut ausgefahren
         if self.checkgcode('SCHNEIDEN') and self.checkgcode('ANPRESSEN') and self.checkgcode('FREIGEBEN'):
             if distance <= self._settings['PDS']['Fahrbare_Strecke']:
                 if user: #Bei manuellen 'schneiden' Material auch anpressen
@@ -460,21 +472,26 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def vorschub (self, user, distance): #Arbeitsschritt - Gcode der beim Vorschub erzeugt wird
+        xvalue = float(self._label_position[0].get_text())
+        maxxdistance = self._settings['PDS']['Fahrbare_Strecke']
+        minxdistance = self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag']
         if not self.svprogress: #Wenn kein Programm läuft
-            try: #Versuchen ob bereits maximale längen erfasst wurden
-                if len(self.maxvlstack) == 0: #und auch kein max_cut Wert vorliegt
-                    max_cut = 0 #unbegrenzt schneiden lassen
-                else:
-                    max_level = max(self.maxvlstack) #Hole aus letztem Stack
-                    max_cut = max(max_level) #Den größten Wert
-                    #TODO aber was passiert wenn Anwender Material menuell einlegt das nicht mit dem programm geschnitten werden soll sondern eben manuell.... hmmhm
-                    #TODO zudem sollte geprüft werden ob benutzer im Schneiden-Arbeitsschritt den max_cut wert nutzt, um so zu erschließen das Säge entgegengesetzt schneidet
-            except:
-                max_cut = 0 #unbegrenzt schneiden lassen
+            if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
+                max_cut = maxxdistance # Säge muss ganz ausgefahren sein
+                errortext = "Säge muss vollständig ausgefahren sein"
+            else:
+                max_cut = False #Säge muss eingeparkt sein
+                errortext = "Säge muss eingefahren sein"
         else: #Falls programm läuft
-            max_cut = self.maxvlstack[self.gcodeblock] #Den Wert dem aktiven Block entnehmen
+            if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
+                max_cut = self.maxvlstack[self.gcodeblock] #Den Wert dem aktiven Block entnehmen
+                errortext = "Säge muss mindestens " + str(max_cut) + "mm ausgefahren sein"
+            else:
+                max_cut = False #Säge muss eingeparkt sein
+                errortext = "Säge muss eingefahren sein"
 
-        if float(self._label_position[0].get_text()) < self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag'] or float(self._label_position[0].get_text()) >= max_cut: #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
+        print(str(xvalue) + " - " + str(maxxdistance) + " - " + str(minxdistance) + " - " + str(max_cut))
+        if (xvalue < minxdistance and not max_cut) or (xvalue >= max_cut and max_cut): #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
             if user:
                 if not 'N/V' in self._label_position[3].get_text():
                     if distance > 999: #Vorschub nach ganz vorne
@@ -506,7 +523,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs")
                     self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
         else:
-            self.tools.verbose(self._verbose, "Vorschub nicht möglich da Sägeblatt im Weg", True)
+            self.tools.verbose(self._verbose, "Vorschub nicht möglich, " + errortext, True)
             self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
 
 
