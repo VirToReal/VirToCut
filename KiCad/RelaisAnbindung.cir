@@ -1,0 +1,61 @@
+* /home/hardy/ownCloud/Lernen/BSZAM/Projektarbeit/KiCad/RelaisAnbindung.cir
+
+* EESchema Netlist Version 1.1 (Spice format) creation date: Fr 29 Jul 2016 18:28:01 CEST
+
+* To exclude a component from the Spice Netlist add [Spice_Netlist_Enabled] user FIELD set to: N
+* To reorder the component spice node sequence add [Spice_Node_Sequence] user FIELD and define sequence: 2,1,0
+
+* Sheet Name: /
+K1  ? ? ? Net-_K1-Pad8_ Net-_K1-Pad9_ Net-_K1-Pad12_ Net-_K1-Pad14_ Net-_K1-Pad16_ RELAY_Stbsgr		
+K2  ? ? ? Net-_K1-Pad8_ Net-_K2-Pad9_ Net-_K1-Pad12_ Net-_K2-Pad14_ Net-_K2-Pad16_ RELAY_Hakrsae		
+P10  Net-_K1-Pad12_ ? ? Net-_K1-Pad14_ Net-_K1-Pad16_ Net-_K2-Pad14_ Net-_K2-Pad16_ CONN_K_230VAC		
+RPi1  Net-_P11-Pad1_ Net-_F1-Pad2_ Net-_P2-Pad1_ ? Net-_P2-Pad2_ Net-_P4-Pad2_ Net-_P3-Pad2_ Net-_P6-Pad2_ ? Net-_P7-Pad2_ Net-_R13-Pad2_ Net-_P8-Pad2_ Net-_R12-Pad2_ ? Net-_R11-Pad2_ Net-_P9-Pad2_ ? Net-_P11-Pad2_ Net-_R9-Pad2_ ? Net-_R7-Pad2_ Net-_P12-Pad2_ Net-_R5-Pad2_ Net-_P13-Pad2_ ? Net-_P14-Pad2_ RASPBERRY_IO		
+P1  Net-_K1-Pad8_ Net-_P1-Pad2_ Net-_P1-Pad3_ Net-_P1-Pad4_ Net-_P1-Pad5_ Net-_P1-Pad6_ Net-_P1-Pad7_ Net-_P1-Pad8_ CONN_SUPPLY2		
+P3  Net-_P11-Pad1_ Net-_P3-Pad2_ CONN_Not-Aus		
+R14  Net-_P4-Pad2_ Net-_P6-Pad2_ R10k		
+R15  Net-_P4-Pad2_ Net-_P7-Pad2_ R10k		
+R16  Net-_P4-Pad2_ Net-_P8-Pad2_ R10k		
+R17  Net-_P4-Pad2_ Net-_P9-Pad2_ R10k		
+R22  Net-_P4-Pad2_ Net-_P11-Pad2_ R10k		
+R23  Net-_P4-Pad2_ Net-_P12-Pad2_ R10k		
+R24  Net-_P4-Pad2_ Net-_P13-Pad2_ R10k		
+R2  Net-_P4-Pad2_ Net-_P3-Pad2_ R10k		
+P6  Net-_P11-Pad1_ Net-_P6-Pad2_ Net-_P6-Pad3_ Net-_P6-Pad4_ CONN_TV_Vr		
+P7  Net-_P11-Pad1_ Net-_P7-Pad2_ Net-_P7-Pad3_ Net-_P7-Pad4_ CONN_TV_Zk		
+P8  Net-_P11-Pad1_ Net-_P8-Pad2_ Net-_P8-Pad3_ Net-_P8-Pad4_ CONN_TV_GZk		
+P9  Net-_P11-Pad1_ Net-_P9-Pad2_ Net-_P9-Pad3_ Net-_P9-Pad4_ CONN_TS_Vr		
+P11  Net-_P11-Pad1_ Net-_P11-Pad2_ Net-_P11-Pad3_ Net-_P11-Pad4_ CONN_TS_Zk		
+P12  Net-_P11-Pad1_ Net-_P12-Pad2_ Net-_P12-Pad3_ Net-_P12-Pad4_ CONN_TS_Snt		
+P13  Net-_P11-Pad1_ Net-_P13-Pad2_ Net-_P13-Pad3_ ? CONN_T_Res		
+U1  Net-_R13-Pad2_ Net-_R12-Pad2_ Net-_R11-Pad2_ Net-_R9-Pad2_ Net-_R7-Pad2_ Net-_R5-Pad2_ Net-_P4-Pad2_ Net-_P4-Pad2_ Net-_P4-Pad2_ ? ? ? Net-_P12-Pad4_ Net-_P11-Pad4_ Net-_P9-Pad4_ Net-_P8-Pad4_ Net-_P7-Pad4_ Net-_P6-Pad4_ ULN2803		
+R5  Net-_P4-Pad2_ Net-_R5-Pad2_ R10k		
+R7  Net-_P4-Pad2_ Net-_R7-Pad2_ R10k		
+R9  Net-_P4-Pad2_ Net-_R9-Pad2_ R10k		
+R11  Net-_P4-Pad2_ Net-_R11-Pad2_ R10k		
+R12  Net-_P4-Pad2_ Net-_R12-Pad2_ R10k		
+R13  Net-_P4-Pad2_ Net-_R13-Pad2_ R10k		
+P14  Net-_P11-Pad1_ Net-_P14-Pad2_ Net-_P14-Pad3_ ? CONN_T_Res		
+R25  Net-_P4-Pad2_ Net-_P14-Pad2_ R10k		
+P4  Net-_F1-Pad1_ Net-_P4-Pad2_ CONN_SUPPLY		
+R18  Net-_P6-Pad3_ Net-_F3-Pad1_ R240		
+R19  Net-_P7-Pad3_ Net-_F3-Pad1_ R240		
+R20  Net-_P8-Pad3_ Net-_F3-Pad1_ R240		
+R21  Net-_P9-Pad3_ Net-_F3-Pad1_ R240		
+R26  Net-_P11-Pad3_ Net-_F3-Pad1_ R240		
+R27  Net-_P12-Pad3_ Net-_F3-Pad1_ R240		
+R28  Net-_P13-Pad3_ Net-_F3-Pad1_ R240		
+R29  Net-_P14-Pad3_ Net-_F3-Pad1_ R240		
+F1  Net-_F1-Pad1_ Net-_F1-Pad2_ 1A		
+F3  Net-_F3-Pad1_ Net-_F1-Pad1_ 1A		
+P5  Net-_K1-Pad8_ Net-_F2-Pad1_ Net-_P1-Pad2_ Net-_P5-Pad4_ Net-_P5-Pad5_ Net-_P5-Pad6_ Net-_P5-Pad7_ CONN_Aux_Res		
+F2  Net-_F2-Pad1_ Net-_F1-Pad1_ 1A		
+R1  Net-_P1-Pad3_ Net-_P1-Pad2_ R10k		
+R3  Net-_P1-Pad4_ Net-_P1-Pad2_ R10k		
+R4  Net-_P1-Pad5_ Net-_P1-Pad2_ R10k		
+R6  Net-_P1-Pad6_ Net-_P1-Pad2_ R10k		
+R8  Net-_P1-Pad7_ Net-_P1-Pad2_ R10k		
+U2  Net-_P1-Pad8_ Net-_P1-Pad8_ Net-_P1-Pad7_ Net-_P1-Pad7_ Net-_P1-Pad6_ Net-_P1-Pad5_ Net-_P1-Pad4_ Net-_P1-Pad3_ Net-_P1-Pad2_ Net-_K1-Pad8_ Net-_P5-Pad7_ Net-_P5-Pad6_ Net-_P5-Pad5_ Net-_P5-Pad4_ Net-_K2-Pad9_ Net-_K2-Pad9_ Net-_K1-Pad9_ Net-_K1-Pad9_ ULN2803		
+R10  Net-_P1-Pad8_ Net-_P1-Pad2_ R10k		
+P2  Net-_P2-Pad1_ Net-_P2-Pad2_ CONN_I^2C		
+
+.end
