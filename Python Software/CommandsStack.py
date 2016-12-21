@@ -21,17 +21,14 @@
 # Umkehrspiel auf Y und Z Achse berücksichtigen
 # Beschleunigungen setzen für Hardware-Buttons
 # Beschleunigungen in Marlin setzen + Abstand_Saegeblatt_zum_Materialanschlag mit Offset "druckbett"
-# Verfahrstrecke Z Achse - Testen
 # Schnittgeschwindigkeit automatisch interpretieren lassen beim Schneiden, rückfahrt immer mit maximaler Geschwindigkeit
-# Absolute Position generieren von Y-Achse, maximale Verfahrstrecke darauf kontrollieren lassen (G28) kallibriert dies
-# zurückzählen der Y-Achse bei Rückwärtsbewegung über Buttons funktioniert nicht
 # Netzteil automatisch an,- und abschalten (ControlGUI.py)
 
 class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     # Vorinitialisierte Werte von Privaten Variablen:
     _verbose = False
-    _safety_blade_distance = 2 # Abstand von Schneidmesser zum Material beim Vorschub
+    _safety_blade_distance = 2 # Abstand von Schneidmesser zum Material beim Vorschub wenn Säge entgegengesetzt schneidet
 
     def __init__ (self, verbose, tools, serialsession, scale, material, label_position, schneidvorlage_items, progress_items): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
 
@@ -191,7 +188,6 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
         #TODO Sachen im Interpreter zu erledigen
         # - Aufteilung ändern wenn "Schnitte manuell bestätigen" und die dazugehörige Staubsauger/Sägenschaltung
-        # - <max_cut> interpretieren und _safety_blade_distance berücksichtigen
         maxvalues = [] # Temporär gespeicherte maximale Schnittweite eines G-Code Blocks
         vorherig = self.vorherig() # 'Vorherig' in GCode-Vorlage einfügen wenn vorhanden
         nachfolgend = self.nachfolgend() # 'Nachfolgend' in GCode-Vorlage einfügen wenn vorhanden
@@ -277,13 +273,13 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     self.gpioner.ButtonBlink(23, 1, "ONOFF", True) #Lasse 'Schneiden' Button blinken bis Anwender darauf drückt
                     self.__confirmedstate = 'HW' #Bestätigungen sollten über die Hardware erfolgen
                 else:
-                    gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0])) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
+                    gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
                     self._serial.sending(gcode, 0) #Sende direkt ersten Block an Maschine
                     self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                     self.blockbuttons = True #Alle Buttons sperren
                     self.__confirmedstate = 'SW' #Bestätigungen sollten über die Software erfolgen
             elif self.gcodeblock == 0 and confirmed == self.__confirmedstate:
-                gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0])) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
+                gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
                 self._serial.sending(gcode, 0) #Sende nach Bestätigung über Hardware ersten Block an Maschine
                 self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
             else:
@@ -296,7 +292,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.tools.infobar('INFO', "Bitte Vor-Ort an der Säge den nächsten Schnitt bestätigen")
                         self.blockbuttons = False #Alle Buttons freigeben
                     elif self.__confirmedstate == confirmed: #Anwender bestätigt neuen Schnitt
-                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock])) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
+                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
                         self._serial.sending(gcode, 0) #Sende jeweils nächsten G-Code Block
                         self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                         self.blockbuttons = True #Alle Buttons sperren
@@ -307,7 +303,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.tools.infobar('INFO', "Bitte in der Software den nächsten Schnitt bestätigen")
                         self.blockbuttons = False #Alle Buttons freigeben
                     elif self.__confirmedstate == confirmed: #Anwender bestätigt neuen Schnitt
-                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock])) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
+                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
                         self._serial.sending(gcode, 0) #Sende jeweils nächsten G-Code Block
                         self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                         self.blockbuttons = True #Alle Buttons sperren
@@ -443,7 +439,6 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def schneiden (self, user, distance, materialthickness=None): #Arbeitsschritt - Gcode der beim Schneiden erzeugt wird
-        #TODO prüfen bei entgegengesetzten schneiden ob auf max_cut ausgefahren
         if self.checkgcode('SCHNEIDEN') and self.checkgcode('ANPRESSEN') and self.checkgcode('FREIGEBEN'):
             if distance <= self._settings['PDS']['Fahrbare_Strecke']:
                 if user: #Bei manuellen 'schneiden' Material auch anpressen
