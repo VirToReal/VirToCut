@@ -37,8 +37,8 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
         GPIO.setup(3, GPIO.IN) # Taster Vorschub - Vor
         GPIO.setup(5, GPIO.IN) # Taster Vorschub - Zurück
         GPIO.setup(7, GPIO.IN) # Arduino Reset
-        #GPIO.setup(8, GPIO.OUT) # RS232 - TX
-        #GPIO.setup(10, GPIO.IN) # RS232 - RX
+        #GPIO.setup(8, GPIO.OUT) # RS232 - TX (Systemintern vergeben)
+        #GPIO.setup(10, GPIO.IN) # RS232 - RX (Systemintern vergeben)
         GPIO.setup(11, GPIO.OUT) # LED Taster Vorschub - Vor
         GPIO.setup(12, GPIO.IN) # Taster Vorschub - Ganz Zurück
         GPIO.setup(13, GPIO.OUT) # LED Taster Vorschub - Zurück
@@ -57,11 +57,11 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
         #GPIO.setup(30, GPIO.IN) # Näherungssensor - Säge Vor  #TODO Raspberry mekert beid dem Pin
         #GPIO.setup(31, GPIO.IN) # Näherungssensor - Säge Zurück  #TODO Raspberry mekert beid dem Pin
 
-        self.ButtonPressed(0, 1, 'Booting', 1) # LED Spielerei
         self.CheckInput(300) # Überwache auf Tastendrücke, Enprellzeit: 300ms
+        self.ButtonPressed(0, 1, 'Booting') # LED Spielerei
 
 
-    def reset_arduino (self): # Resettet den Arduino
+    def reset_arduino (self): # Resettet den Arduino indem Pin 7 auf Masse gezogen wird (out/low), um nach 100ms wieder hochohmig zu werden (in)
         GPIO.setup(7, GPIO.OUT)
         GPIO.output(7, False)
         time.sleep(0.1)
@@ -135,7 +135,7 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
         if loops == 0:
             while (not self.blinkthread_stop.is_set()):
                 self.EFFECTS(pinout, duration, effect) #Kontinuierlich bis abgebrochen wird
-        elif effect == 'booting':
+        elif effect == 'Booting':
             self.EFFECTS(pinout, duration, "LampTest")
             for i in range(8):
                 self.EFFECTS(pinout, duration, "CircleCW")
