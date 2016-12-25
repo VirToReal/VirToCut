@@ -127,49 +127,62 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         except:
             self.tools.verbose(self._verbose, "Schrittweite noch nicht gesetzt, bitte korrigieren!")
             scalevalue = 0
-        if buttontype == "SW": # Software-Buttons
-            if function == "GV" and not self.blockbuttons: # Software-Button - Vorschub ganz vor
-                self.vorschub(2, 1000) #Code 2 = Benutzerausgeführt
-            elif function == "V" and not self.blockbuttons: # Software-Button - Vorschub vor
-                self.vorschub(2, scalevalue) #Code 2 = Benutzerausgeführt
-            elif function == "Z" and not self.blockbuttons: # Software-Button - Vorschub zurück
-                self.rueckfahrt(2, scalevalue) #Code 2 = Benutzerausgeführt
-            elif function == "GZ" and not self.blockbuttons: # Software-Button - Vorschub ganz zurück
-                self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
-            elif function == "S" and not self.blockbuttons and self.svprogress and self.__confirmedstate == "SW": #Software-Button - "Schneiden" wurde im Programmmodus betätigt
-                if self.gcodeblock == 0:
-                    self.sequenced_sending(1, 'SW') #Bestätige ersten G-Code Block zum abfertigen
-                elif self.gcodeblock > 0:
-                    self.sequenced_sending(2, 'SW') #Bestätige ersten G-Code Block zum abfertigen
-            elif function == "S" and not self.blockbuttons: # Software-Button - Schneiden
-                self.schneiden(True, xvalue, self.getmaterialthickness())
-            elif function == "H" and not self.blockbuttons: # Software-Button - Homen
-                self.home(1) #Code 1 = Benutzerseitig ausgeführt
-            elif function == "AP" and not self.blockbuttons: # Software-Button - Anpressen
-                self.anpressen(2, self.getmaterialthickness()) #Code 2 = Benutzerausgeführt
-            elif function == "AH" and not self.blockbuttons: # Software-Button - Anheben
-                self.freigeben(2) #Code 2 = Benutzerausgeführt
+        if not self.blockbuttons: # Prüfen ob die Buttons freigegeben sind
+            if buttontype == "SW": # Software-Buttons
+                if function == "GV": # Software-Button - Vorschub ganz vor
+                    self.vorschub(2, 1000) #Code 2 = Benutzerausgeführt
+                elif function == "V": # Software-Button - Vorschub vor
+                    self.vorschub(2, scalevalue) #Code 2 = Benutzerausgeführt
+                elif function == "Z": # Software-Button - Vorschub zurück
+                    self.rueckfahrt(2, scalevalue) #Code 2 = Benutzerausgeführt
+                elif function == "GZ": # Software-Button - Vorschub ganz zurück
+                    self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
+                elif function == "S" and self.svprogress and self.__confirmedstate == "SW": #Software-Button - "Schneiden" wurde im Programmmodus betätigt
+                    if self.gcodeblock == 0:
+                        self.sequenced_sending(1, 'SW') #Bestätige ersten G-Code Block zum abfertigen
+                    elif self.gcodeblock > 0:
+                        self.sequenced_sending(2, 'SW') #Bestätige ersten G-Code Block zum abfertigen
+                elif function == "S": # Software-Button - Schneiden
+                    self.schneiden(True, xvalue, self.getmaterialthickness())
+                elif function == "H": # Software-Button - Homen
+                    self.home(1) #Code 1 = Benutzerseitig ausgeführt
+                elif function == "AP": # Software-Button - Anpressen
+                    self.anpressen(2, self.getmaterialthickness()) #Code 2 = Benutzerausgeführt
+                elif function == "AH": # Software-Button - Anheben
+                    self.freigeben(2) #Code 2 = Benutzerausgeführt
 
-        elif buttontype == "HW": # Hardware-Buttons
-            if function == "VV" and not self.blockbuttons: # Hardware-Button - Vorschub vor
-                self.vorschub(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
-            elif function == "VZ" and not self.blockbuttons: # Hardware-Button - Vorschub zurück
-                self.rueckfahrt(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
-            elif function == "VGZ" and not self.blockbuttons: # Hardware-Button - Vorschub ganz zurück
-                self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
-            elif function == "SV" and not self.blockbuttons: # Hardware-Button - Säge vor
-                self._serial.sending('G91\nG0 X%s\nG90' % str(self._settings['HPDS']['Schrittweite_Saege']), 2)
-                self._label_position[0].set_text(str(xvalue + self._settings['HPDS']['Schrittweite_Saege']))
-            elif function == "SZ" and not self.blockbuttons: # Hardware-Button - Säge zurück
-                self._serial.sending('G91\nG0 X-%s\nG90' % str(self._settings['HPDS']['Schrittweite_Saege']), 2)
-                self._label_position[0].set_text(str(xvalue - self._settings['HPDS']['Schrittweite_Saege']))
-            elif function == "S" and not self.blockbuttons and self.svprogress and self.__confirmedstate == "HW": #Hardware-Button - "Schneiden" wurde im Programmmodus betätigt
-                if self.gcodeblock == 0:
-                    self.sequenced_sending(1, 'HW') #Bestätige ersten G-Code Block zum abfertigen
-                elif self.gcodeblock > 0:
-                    self.sequenced_sending(2, 'HW') #Bestätige ersten G-Code Block zum abfertigen
-            elif function == "S" and not self.blockbuttons: # Hardware-Button - Schneiden
-                self.schneiden(True, xvalue, self.getmaterialthickness())
+            elif buttontype == "HW": # Hardware-Buttons
+                if function == "VV": # Hardware-Button - Vorschub vor
+                    self.vorschub(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
+                elif function == "VZ": # Hardware-Button - Vorschub zurück
+                    self.rueckfahrt(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
+                elif function == "VGZ": # Hardware-Button - Vorschub ganz zurück
+                    self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
+                elif function == "SV": # Hardware-Button - Säge vor
+                    if xvalue == self._settings['PDS']['Fahrbare_Strecke']: # Säge ist bereits ganz ausgefahren
+                        self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
+                    elif self._settings['HPDS']['Schrittweite_Saege'] + xvalue > self._settings['PDS']['Fahrbare_Strecke']: #Prüfe ob Platz frei um vor zu fahren
+                        cdist = self._settings['PDS']['Fahrbare_Strecke'] - xvalue
+                    else:
+                        cdist = self._settings['HPDS']['Schrittweite_Saege']
+                    self._serial.sending('G91\nG0 X%s\nG90' % str(cdist), 2)
+                    self._label_position[0].set_text(str(xvalue + cdist))
+                elif function == "SZ": # Hardware-Button - Säge zurück
+                    if xvalue == 0: # Säge ist bereits ganz eingefahren
+                        self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
+                    elif xvalue < self._settings['HPDS']['Schrittweite_Saege']: #Prüfe ob Platz frei um zurück zu fahren
+                        cdist = xvalue
+                    else:
+                        cdist = self._settings['HPDS']['Schrittweite_Saege']
+                    self._serial.sending('G91\nG0 X-%s\nG90' % str(cdist), 2)
+                    self._label_position[0].set_text(str(xvalue - cdist))
+                elif function == "S" and self.svprogress and self.__confirmedstate == "HW": #Hardware-Button - "Schneiden" wurde im Programmmodus betätigt
+                    if self.gcodeblock == 0:
+                        self.sequenced_sending(1, 'HW') #Bestätige ersten G-Code Block zum abfertigen
+                    elif self.gcodeblock > 0:
+                        self.sequenced_sending(2, 'HW') #Bestätige ersten G-Code Block zum abfertigen
+                elif function == "S": # Hardware-Button - Schneiden
+                    self.schneiden(True, xvalue, self.getmaterialthickness())
 
 
     def cutting_template_interpreter (self, cutting_template): # Interpretiert die Schneidvorlage und wandelt diesen in G-Code um
