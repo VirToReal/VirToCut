@@ -23,6 +23,7 @@
 # Beschleunigungen in Marlin setzen + Abstand_Saegeblatt_zum_Materialanschlag mit Offset "druckbett"
 # Schnittgeschwindigkeit automatisch interpretieren lassen beim Schneiden, rückfahrt immer mit maximaler Geschwindigkeit
 # Netzteil automatisch an,- und abschalten (ControlGUI.py)
+# Erzeugte Schneidvorlage verwerfen wenn Vorschub bewegt wird
 
 class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
@@ -40,14 +41,15 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         self._schneidvorlage_items = schneidvorlage_items #Tupel mit allen für die Schneidvorlage notwendigen GTK Elemente
         self._progress_items = progress_items #Tupel mit GTK-Elementen für die Darstellung einer Fortschrittsanzeige
 
-        self.svprogress = False #Verarbeitung der Schneidvolage als deaktiviert initialisieren
-        self.blockbuttons = False #Zugriff auf Hardware/Software Buttons prinzipiell erlauben
+        self.svprogress = False # Verarbeitung der Schneidvolage als deaktiviert initialisieren
+        self.blockbuttons = False # Zugriff auf Hardware/Software Buttons prinzipiell erlauben
+        self.feedsvalue = 0 # Gesamtvorschub einer erzeugten Interpreter-Instanz mit '0' initialisieren
 
         self.tools = tools # Übergebe Tools Klasse
         self.load() # Lade schon einmal die aktuellen G-Codes
 
         self.cutting_template_editstate = False # Vorinitialisierter Zustand der Schneidvorlage
-        self._schneivorlage_filepath = None #Vorinitialisierte Pfadangabe für Schneidvorlagen
+        self._schneivorlage_filepath = None # Vorinitialisierte Pfadangabe für Schneidvorlagen
 
 
     def load (self): # Lade momentane G-Codes und Einstellungen aus Yaml-Datei
@@ -120,11 +122,11 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
     def BUTTON (self, buttontype, function): # Funktion für das Drücken eines Buttons in der Software oder auf der Hardware
         try:
             scalevalue = float(self._scale.get_text()) # Hole Schrittweite
+            xvalue = float(self._label_position[0].get_text()) # Hole Position X-Achse
+            yvalue = float(self._label_position[1].get_text()) # Hole Position Y-Achse
         except:
             self.tools.verbose(self._verbose, "Schrittweite noch nicht gesetzt, bitte korrigieren!")
             scalevalue = 0
-        xvalue = float(self._label_position[0].get_text()) # Hole Position X-Achse
-        yvalue = float(self._label_position[1].get_text()) # Hole Position Y-Achse
         if buttontype == "SW": # Software-Buttons
             if function == "GV" and not self.blockbuttons: # Software-Button - Vorschub ganz vor
                 self.vorschub(2, 1000) #Code 2 = Benutzerausgeführt
@@ -179,6 +181,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         zvalue = float(self._label_position[2].get_text()) # Hole Position Z-Achse
         self.__error = False # evtl. anstehende Fehler von vorherigen Schneidvorlage zurücksetzen
         self.gcodeblock = 0 # Setze abgearbeitete G-Code Blöcke auf 0
+        self.feedsvalue = 0 # Setzt den Gesamtvorschub einer erzeugten Interpreter-Instanz auf 0
 
         self.gcodestack = [] # Liste aller zu erzeugenden Abläufe
         self.maxvlstack = [] # Liste aller maximalen Schnittweiten je G-Code Block
@@ -467,28 +470,26 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def vorschub (self, user, distance): #Arbeitsschritt - Gcode der beim Vorschub erzeugt wird
-        xvalue = float(self._label_position[0].get_text())
-        maxxdistance = self._settings['PDS']['Fahrbare_Strecke']
-        minxdistance = self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag']
-        if not self.svprogress: #Wenn kein Programm läuft
-            if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
-                max_cut = maxxdistance # Säge muss ganz ausgefahren sein
-                errortext = "Säge muss vollständig ausgefahren sein"
-            else:
-                max_cut = False #Säge muss eingeparkt sein
-                errortext = "Säge muss eingefahren sein"
-        else: #Falls programm läuft
-            if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
-                max_cut = self.maxvlstack[self.gcodeblock] #Den Wert dem aktiven Block entnehmen
-                errortext = "Säge muss mindestens " + str(max_cut) + "mm ausgefahren sein"
-            else:
-                max_cut = False #Säge muss eingeparkt sein
-                errortext = "Säge muss eingefahren sein"
-
-        print(str(xvalue) + " - " + str(maxxdistance) + " - " + str(minxdistance) + " - " + str(max_cut))
-        if (xvalue < minxdistance and not max_cut) or (xvalue >= max_cut and max_cut): #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
-            if user:
-                if not 'N/V' in self._label_position[3].get_text():
+        if user: #Bei manuellem Vorschub
+            if not 'N/V' in self._label_position[3].get_text():
+                xvalue = float(self._label_position[0].get_text())
+                maxxdistance = self._settings['PDS']['Fahrbare_Strecke']
+                minxdistance = self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag']
+                if not self.svprogress: #Wenn kein Programm läuft
+                    if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
+                        max_cut = maxxdistance # Säge muss ganz ausgefahren sein
+                        errortext = "Säge muss vollständig ausgefahren sein"
+                    else:
+                        max_cut = False #Säge muss eingeparkt sein
+                        errortext = "Säge muss eingefahren sein"
+                else: #Falls programm läuft
+                    if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
+                        max_cut = self.maxvlstack[self.gcodeblock] #Den Wert dem aktiven Block entnehmen
+                        errortext = "Säge muss mindestens " + str(max_cut) + "mm ausgefahren sein"
+                    else:
+                        max_cut = False #Säge muss eingeparkt sein
+                        errortext = "Säge muss eingefahren sein"
+                if (xvalue < minxdistance and not max_cut) or (xvalue >= max_cut and max_cut): #Prüfe ob beim Vorschub das Sägeblatt nicht beschädigt wird
                     if distance > 999: #Vorschub nach ganz vorne
                             distance = self._settings['PDV']['Fahrbare_Strecke'] - float(self._label_position[3].get_text()) #Bilde restliche Distanz aus momentaner Position und eingestellter fahrbaren Strecke
                             self._serial.sending('G91\nG0 Y' + str(distance) + '\nG90\nM114', user) #Vorschub an den seriellen Port senden
@@ -503,23 +504,24 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                             self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs", True)
                             self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
                 else:
-                    self.tools.verbose(self._verbose, "keine absolute Position des Vorschubs vorhanden, bitte Maschine vorher 'homen'!", True)
+                    self.tools.verbose(self._verbose, "Vorschub nicht möglich, " + errortext, True)
             else:
-                if distance + float(self._label_position[3].get_text()) <= self._settings['PDV']['Fahrbare_Strecke']:
-                    if self.checkgcode('VORSCHUB'):
-                        newgcode = self.checkvalue(self._gcode['VORSCHUB'], distance, False, 'VORSCHUB') #G-Code zurück zum Programmgenerator
-                        if newgcode:
-                            return newgcode #Angepassten G-Code zurück zum Programmgenerator
-                        else:
-                            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
+                self.tools.verbose(self._verbose, "keine absolute Position des Vorschubs vorhanden, bitte Maschine vorher 'homen'!", True)
+        else: #Bei automatischen Vorschub
+            if distance + self.feedsvalue + float(self._label_position[3].get_text()) <= self._settings['PDV']['Fahrbare_Strecke']:
+                if self.checkgcode('VORSCHUB'):
+                    newgcode = self.checkvalue(self._gcode['VORSCHUB'], distance, False, 'VORSCHUB') #G-Code zurück zum Programmgenerator
+                    if newgcode:
+                        return newgcode #Angepassten G-Code zurück zum Programmgenerator
                     else:
                         self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
                 else:
-                    self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs")
                     self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
-        else:
-            self.tools.verbose(self._verbose, "Vorschub nicht möglich, " + errortext, True)
-            self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
+            else:
+                self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs")
+                self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
+            self.feedsvalue += distance # Addiere Vorschubdistanz auf momentane Interpreter-Instanz
+
 
 
     def rueckfahrt (self, user, distance): #Arbeitsschritt - G-Gode der bei der Rückfahrt erzeugt wird

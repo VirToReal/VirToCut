@@ -208,3 +208,12 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
             GPIO.output(19, False)
             GPIO.output(21, False)
             GPIO.output(23, False)
+
+    def terminate(self): # Trennt den GPIO zuverlässig
+        GPIO.remove_event_detect(3)
+        GPIO.remove_event_detect(5)
+        GPIO.remove_event_detect(12)
+        GPIO.remove_event_detect(16)
+        GPIO.remove_event_detect(18)
+        GPIO.remove_event_detect(22)
+        GPIO.cleanup()
