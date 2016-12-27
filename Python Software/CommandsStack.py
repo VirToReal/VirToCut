@@ -31,7 +31,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
     _verbose = False
     _safety_blade_distance = 2 # Abstand von Schneidmesser zum Material beim Vorschub wenn Säge entgegengesetzt schneidet
 
-    def __init__ (self, verbose, tools, serialsession, scale, material, label_position, schneidvorlage_items, progress_items): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
+    def __init__ (self, verbose, tools, serialsession, scale, material, label_position, schneidvorlage_items, status_items): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
 
         self._verbose = verbose # Verbose-Modus überladen
         self._serial = serialsession # Instanz von momentaner seriellen Verbindung
@@ -39,11 +39,12 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         self._material = material
         self._label_position = label_position #Tupel mit den GTK.Labels zum darstellen der momentanen X/Y/Z Position
         self._schneidvorlage_items = schneidvorlage_items #Tupel mit allen für die Schneidvorlage notwendigen GTK Elemente
-        self._progress_items = progress_items #Tupel mit GTK-Elementen für die Darstellung einer Fortschrittsanzeige
+        self._status_items = status_items #Tupel mit GTK-Elementen für die Darstellung in der Statusanzeige
 
         self.svprogress = False # Verarbeitung der Schneidvolage als deaktiviert initialisieren
         self.blockbuttons = False # Zugriff auf Hardware/Software Buttons prinzipiell erlauben
         self.feedsvalue = 0 # Gesamtvorschub einer erzeugten Interpreter-Instanz mit '0' initialisieren
+        self.__cutvalue = False # Maximale Sägenposition bei entgegengesetzter Schneidrichtung als vollständig auszufahren ansehen
 
         self.tools = tools # Übergebe Tools Klasse
         self.load() # Lade schon einmal die aktuellen G-Codes
@@ -103,11 +104,31 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
     def checkmaxcut (self): # Prüfe ob Säge entgegengesetzt schneidet indem der Arbeitsschritt "Schneiden" auf den Platzhalter '<max_cut>' geprüft wird
         if self.checkgcode('SCHNEIDEN'): #Prüfe ob Arbeitsschritt angelegt wurde
             if any(x in self._gcode['SCHNEIDEN'] for x in ['<max_cut>']): #Prüfe Arbeitsschritt "Schneiden" auf Platzhalter
+                self._status_items[2].set_reveal_child(True) #Zeige Togglebutton zum überschreiben der maximalen Sägenposition an um diese nicht vollständig ausfahren zu müssen
                 return True # Gebe 'True' zurück falls vorhanden
             else:
+                self._status_items[2].set_reveal_child(False) #Deaktiviere Togglebutton zum überschreiben der maximalen Sägenposition
                 return False # andernfalls 'False'
         else:
             return False # Gebe 'False' zurück falls nicht angelegt
+
+
+    def toggle_ms (self, force=False, deactivate=False): # Schaltet Möglichkeit ein/aus die momentane Sägenposition als maximal ausgefahren anzusehen
+        status = self._status_items[3].get_active() # Prüfe welchen Status der ToggleButton hat
+        if status and not deactivate: # Wenn eingeschaltet
+            if force: # Überschreiben wird vom Anwender angefordert
+                xvalue = float(self._label_position[0].get_text())
+                if xvalue < self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag']: # Säge befindet sich noch im eingefahrenen Bereich
+                    self.tools.verbose(self._verbose, "Säge ist noch eingefahren, warum Sägenposition als max. ausgefahren ansehen?", True)
+                    self._status_items[3].set_active(False) # ToggleButton deaktivieren
+                else:
+                    self.__cutvalue = xvalue
+            else: # andernfalls Überschreiben vom Anwender bestätigen lassen
+                self.tools.infobar('QUESTION', 'Wirklich momentane Sägenposition als maximal ausgefahren ansehen? Auf Sägeblatt aufpassen!', 'YES/NO')
+        elif deactivate:
+            self._status_items[3].set_active(False) # ToggleButton deaktivieren
+        else:
+            self.tools.infobar('','','HIDE') # Falls Infobar bereits geöffnet, diese wieder deaktivieren
 
 
     def getmaterialthickness (self): # Holt die Auswahl der Materialstärke und gibt diese zurück
@@ -279,7 +300,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     def sequenced_sending (self, step, confirmed=False): #Sendet auf Befehl G-Code Sequenzen an den Arduino
         if step == 1 and not self.svprogress: #Ersten G-Code Block Abarbeiten
-            self._progress_items[0].set_reveal_child(True) #Zeige Fortschrittsanzeige
+            self._status_items[0].set_reveal_child(True) #Zeige Fortschrittsanzeige
             self.svprogress = True #Aktiviere Fortschritt
             self._schneidvorlage_items[7].set_image(self._schneidvorlage_items[8]) #Wandle Button "Schneidvorlage an Säge senden" in "Sägevorgang abbrechen" um
             self._schneidvorlage_items[7].set_label("Sägevorgang abbrechen")
@@ -331,10 +352,10 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             self._schneidvorlage_items[7].set_image(self._schneidvorlage_items[9]) #Wandle Button "Sägevorgang abbrechen" in "Schneidvorlage an Säge senden" um
             self._schneidvorlage_items[7].set_label("Schneidvorlage an Säge senden")
             self.svprogress = False #Deaktiviere Fortschrittsanzeige
-            self._progress_items[0].set_reveal_child(False) #Verstecke Fortschrittsanzeige
+            self._status_items[0].set_reveal_child(False) #Verstecke Fortschrittsanzeige
             self.__confirmedstate = None
             self.gcodeblock = 0
-            self._progress_items[1].set_value(0) #GtkLevelBar für G-Code Block Fortschritt wieder auf 0 setzen
+            self._status_items[1].set_value(0) #GtkLevelBar für G-Code Block Fortschritt wieder auf 0 setzen
 
         else: # Falls Button "Sägevorgang abbrechen" gedrückt wird
             self.tools.verbose(self._verbose, "Sägevorgang wird abgebrochen", True)
@@ -343,16 +364,16 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 self._schneidvorlage_items[7].set_image(self._schneidvorlage_items[9]) #Wandle Button "Sägevorgang abbrechen" in "Schneidvorlage an Säge senden" um
                 self._schneidvorlage_items[7].set_label("Schneidvorlage an Säge senden")
                 self.svprogress = False #Deaktiviere Fortschrittsanzeige
-                self._progress_items[0].set_reveal_child(False) #Verstecke Fortschrittsanzeige
+                self._status_items[0].set_reveal_child(False) #Verstecke Fortschrittsanzeige
                 self.__confirmedstate = None
                 self.gcodeblock = 0 #Setze abzuarbeitende G-Code Blöcke wieder auf 0
-                self._progress_items[1].set_value(0) #GtkLevelBar für G-Code Block Fortschritt wieder auf 0 setzen
+                self._status_items[1].set_value(0) #GtkLevelBar für G-Code Block Fortschritt wieder auf 0 setzen
 
 
     def get_transmission_status (self): #Gibt Anzahl G-Code Blöcke und abgearbeitet G-Code Blöcke zurück und passt G-Code Block Fortschritt an
         stackcount = len(self.gcodestack)
         percentage = self.gcodeblock / stackcount #Wert für G-Code Block Fortschrittsanzeige 0-1
-        self._progress_items[1].set_value(percentage) #Wert für GtkLevelBar
+        self._status_items[1].set_value(percentage) #Wert für GtkLevelBar
         return (stackcount, self.gcodeblock)
 
 
@@ -486,11 +507,16 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         if user: #Bei manuellem Vorschub
             if not 'N/V' in self._label_position[3].get_text():
                 xvalue = float(self._label_position[0].get_text())
-                maxxdistance = self._settings['PDS']['Fahrbare_Strecke']
+                if self.__cutvalue: # Prüfe ob ein manuelles "Überschreiben" der max. Sägenposition vom Anwender vorliegt
+                    if xvalue == self.__cutvalue: # Befindet sich Säge an der Position zum Zeitpunkt der Aktivierung, manuelle "maximale" Sägendistanz beibehalten
+                        maxdistance = self.__cutvalue
+                    else: # Ansonsten den ToggleButton deaktivieren und max. Sägenposition wieder auf voll ausgefahren definieren
+                        self.toggle_ms(False, True) # Deaktiviere max. Sägenposition "Überschreiben" Togglebutton
+                        maxdistance = self._settings['PDS']['Fahrbare_Strecke']
                 minxdistance = self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag']
                 if not self.svprogress: #Wenn kein Programm läuft
                     if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
-                        max_cut = maxxdistance # Säge muss ganz ausgefahren sein
+                        max_cut = maxdistance # Säge muss ganz ausgefahren sein
                         errortext = "Säge muss vollständig ausgefahren sein"
                     else:
                         max_cut = False #Säge muss eingeparkt sein

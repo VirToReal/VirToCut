@@ -101,7 +101,9 @@ class Windows:
         self.if_st_fsrevealer1 = self.builder.get_object("IF_ST_FSRevealer1") #Revealer - Information/Status Fortschritt - Blendet Fortschrittsanzeige ein/aus
         self.if_st_fs_rowbar = self.builder.get_object("IF_ST_FS_RowBar") #LevelBar - Information/Status Fortschritt - Fortschrittsanzeige für abgearbeitete Zeilen G-Code
         self.if_st_fs_blockbar = self.builder.get_object("IF_ST_FS_BlockBar") #LevelBar - Information/Status Fortschritt - Fortschrittsanzeige für abgearbeitete G-Code Blöcke
-        self.if_st_fs_tuple = (self.if_st_fsrevealer1, self.if_st_fs_blockbar)
+        self.if_st_fsrevealer2 = self.builder.get_object("IF_ST_FSRevealer2") #Revealer - Information/Status Sägenposition überschreiben - Blendet Togglebutton samt Beschriftung ein/aus
+        self.if_st_ms_overwrite = self.builder.get_object("IF_ST_MS_Overwrite") # Togglebutton - Information/Status Sägenposition überschreiben - Überschreibe max. Sägenposition auf momentane Sägenposition
+        self.if_st_tuple = (self.if_st_fsrevealer1, self.if_st_fs_blockbar, self.if_st_fsrevealer2, self.if_st_ms_overwrite)
 
         #Notebook - Verbindung
         self.if_vb_status = self.builder.get_object("IF_VB_LABEL_STATUS")
@@ -181,7 +183,7 @@ class Windows:
                         self._serialsession = SerialCommunication(self._verbose, self.tools, i[0], i[1], i[2], i[3], oksig, self.if_vb_status, self.if_vb_vb, self.if_vb_tr, self.if_vb_rs) #Baue Verbindung zu Arduino auf
                         try:
                             if self._serialsession.sc.isOpen(): # Wenn Verbindung besteht
-                                self._commandsstack = CommandsStack(self._verbose, self.tools, self._serialsession, self.bw_sk_v, self.ab_mdl, self.if_st_pos_tuple, self.schneidvorlage_tuple, self.if_st_fs_tuple) #Bereite vordefinierte G-Code Arbeitsschritte
+                                self._commandsstack = CommandsStack(self._verbose, self.tools, self._serialsession, self.bw_sk_v, self.ab_mdl, self.if_st_pos_tuple, self.schneidvorlage_tuple, self.if_st_tuple) #Bereite vordefinierte G-Code Arbeitsschritte
                                 self.gpioner = GPIOner(self._verbose, self.tools, self._commandsstack) #Initalisiere den GPIO auf dem Raspberry
                                 self._commandsstack.gpioner = self.gpioner # Erzeuge Attribut von GPIOner Instanz in der CommandsStack Klasse
                                 self._serialsession.gpioner = self.gpioner # Erzeuge Attribut von GPIOner Instanz in der SerialSession Klasse
@@ -213,7 +215,10 @@ class Windows:
             object.hide() #Blende InfobarDia aus
         elif response_id == 1: #'Apply' wurde gedrückt
             object.hide() #Blende InfobarDia aus
-            self.tools.save_file(self._verbose, self.tools.wait_for_save[0], self.tools.wait_for_save[1], True) #Lasse Daten in Datei schreiben
+            if self.tools.wait_for_save: # Prüfe ob Dialog für das Überschreiben einer Datei erzeugt wurde
+                self.tools.save_file(self._verbose, self.tools.wait_for_save[1], self.tools.wait_for_save[2], True) #Lasse Daten in Datei schreiben
+            else: # Ansonsten muss Dialog zum überschreiben der maximalen Sägenposition sein
+                self._commandsstack.toggle_ms(True, False)
         elif response_id == 2: #'Cancel' wurde gedrückt
             object.hide() #Blende InfobarDia aus
 
@@ -278,10 +283,14 @@ class Windows:
         self.ab_mdl.set_active(self.__materialitems) # Setze Benutzerdefinierte breite Aktiv
         self.__materialitems += 1
 
-    def on_AP_MDL_changed(self, object, data=None): # Signal Combobox/Anpressbügel "Materialstärke"ausgewählt
+    def on_AP_MDL_changed(self, object, data=None): # Signal Combobox/Anpressbügel "Materialstärke" ausgewählt
         self.tools.verbose(self._verbose, 'Signal Combobox/Anpressbügel "Materialstärke" ausgewählt')
         #value = self.ab_mdl.get_value()
         #print (value)
+
+    def on_IF_ST_MS_Overwrite_toggled(self, object, data=None): # Signal Togglebutton/max. Sägenposition "Überschreiben" gedrückt
+        self.tools.verbose(self._verbose, 'Signal Togglebutton/max. Sägenposition "Überschreiben" gedrückt')
+        self._commandsstack.toggle_ms() # Löse im CommandsStack die Funktion "toggle_ms" aus
 
     def on_IF_VB_VB_clicked(self, object, data=None): # Signal Button/Information/Verbindung/ "Verbinden" gedrückt
         self.tools.verbose(self._verbose, 'Signal Button/Information/Verbindung "Verbinden" gedrückt')
@@ -474,7 +483,7 @@ class Windows:
                             self.tools.terminal(self._verbose, entry[1], entry[2])
                     else:
                         if entry[1] == 1: # Fehlercode "1" auswerten
-                            self.tools.verbose(self._verbose, "Senden einer G-Code Zeile fehlgeschlagen nach '" + str(self._serialsession.trys()) + "' versuchen")
+                            self.tools.verbose(self._verbose, "Senden einer G-Code Zeile fehlgeschlagen nach '" + str(self._serialsession.trys) + "' versuchen")
                         elif entry[1] == 2: # Fehlercode "2" auswerten
                             self.tools.verbose(self._verbose, "Keine Bestätigung erhalten, sende Zeile noch einmal...")
                         elif entry[1] == 3: # Fehlercode "3" auswerten
@@ -516,6 +525,7 @@ class Windows:
                         self.portlist.append([i[0],i[1],i[2],i[3], False])
                 self.configdata['SVP']['Angelegte_Verbindungen'] = self.portlist # Ports im Dictionary mit Favouritenbezeichnung überschreiben
                 self.tools.yaml_dump(self._verbose, ['Config'], 'Einstellungen', self.configdata) # Schreibe Veränderungen von Einstellungen in die Yaml-Datei
+            self.gpioner.terminate() # Trennt GPIO des Raspberrys zuverlässig
 
 main = Windows()
 Gtk.main()

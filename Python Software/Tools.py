@@ -42,7 +42,7 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
         self.__label_position = label_position
         self.__infobar_items = infobar_items
 
-        self.wait_for_save = None # Variable die für das zwischenspeichern verwendet wird, wenn eine Datei bereits existiert und vom Benutzer ein Überschreiben abgefragt werden muss
+        self.wait_for_save = False # Variable die für das zwischenspeichern verwendet wird, wenn eine Datei bereits existiert und vom Benutzer ein Überschreiben abgefragt werden muss
 
         #Folgende RegEx Kombinationen wurden mit den Editor von https://regex101.com/ erzeugt:
         self.M114Check = re.compile('[xX+:]{2}([0-9.]{1,15})+\s[yY:]{2}([0-9.]{1,15})+\s[zZ:]{2}([0-9.]{1,15})+\s') #RegEx - String auf M114 Antwort prüfen und Achsen-Positionen in Gruppen aufteilen
@@ -72,6 +72,8 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
         if buttons == 'YES/NO': # Blende die Infobar für Dialoge ein
             self.__infobar_items[0].show()
             self.__infobar_items[2].set_text(message)
+        elif buttons == 'HIDE': # Blende die Infobar für Dialoge aus
+            self.__infobar_items[0].hide()
         else: # Blende die Infobar für Informationen ein, und stelle diese je nach Informationstyp dar
             if message_type == 'INFO':
                 self.__infobar_items[3].set_message_type(Gtk.MessageType.INFO)
@@ -202,13 +204,14 @@ class Tools: # Diese Klasse stellt Werkzeuge die von verschiedenen Oberklassen v
         if not override: #Wenn nicht eindeutig überschrieben werden soll, vorher abfragen:
             if self.check_file (verbose, filepath):
                 self.infobar('QUESTION', 'Datei existiert bereits, überschreiben?', 'YES/NO')
-                self.wait_for_save = (filedata, filepath)
+                self.wait_for_save = (True, filedata, filepath)
             else:
                 write = True
         else:
             write = True
 
         if write:
+            self.wait_for_save = False
             with open(filepath, 'w') as f:
                 f.write(filedata)
 
