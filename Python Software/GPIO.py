@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#VirToCut - Controlsoftware for dynamical Plate-Saw-Machine
+#VirToCut - Controlsoftware for a dynamical Plate-Saw-Machine
 #Copyright (C) 2016  Benjamin Hirmer - hardy at virtoreal.net
 
 #This program is free software: you can redistribute it and/or modify
@@ -68,55 +68,104 @@ class GPIOner(): # Klasse für die Konfiguration der Schnittstelle mit Bedienpan
         GPIO.setup(7, GPIO.IN)
 
 
-    #TODO Tastendruckdauer auswerten
     def HW_BW_VV(self, channel): # Hardware Button "Vorschub Vor" gedrückt
-        self.tools.verbose(self._verbose, 'Hardware-Button: "Vorschub Vor" gedrückt')
-        self.ButtonPressed(11, 1, "ONOFF")
-        self._commandsstack.BUTTON("HW", "VV")
+        global HW_BW_VV_TS
+        global HW_BW_VV_TE
+        if GPIO.input(3):
+            HW_BW_VV_TS = time.time()
+        if not GPIO.input(3):
+            HW_BW_VV_TE = time.time()
+            if HW_BW_VV_TE - HW_BW_VV_TS >= 0.2: # Tastendruckdauer min. 200 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Vorschub Vor" kurz gedrückt')
+                self.ButtonPressed(11, 1, "ONOFF")
+                self._commandsstack.BUTTON("HW", "VV")
 
 
     def HW_BW_VZ(self, channel): # Hardware Button "Vorschub Zurück" gedrückt
-        self.tools.verbose(self._verbose, 'Hardware-Button: "Vorschub Zurück" gedrückt')
-        self.ButtonPressed(13, 1, "ONOFF")
-        self._commandsstack.BUTTON("HW", "VZ")
+        global HW_BW_VZ_TS
+        global HW_BW_VZ_TE
+        if GPIO.input(5):
+            HW_BW_VZ_TS = time.time()
+        if not GPIO.input(5):
+            HW_BW_VZ_TE = time.time()
+            if HW_BW_VZ_TE - HW_BW_VZ_TS >= 0.2: # Tastendruckdauer min. 200 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Vorschub Zurück" kurz gedrückt')
+                self.ButtonPressed(13, 1, "ONOFF")
+                self._commandsstack.BUTTON("HW", "VZ")
 
 
     def HW_BW_VGZ(self, channel): # Hardware Button "Vorschub Ganz Zurück" gedrückt
-        self.tools.verbose(self._verbose, 'Hardware-Button: "Vorschub Ganz Zurück" gedrückt')
-        self.ButtonPressed(15, 1, "ONOFF")
-        self._commandsstack.BUTTON("HW", "VGZ")
+        global HW_BW_VGZ_TS
+        global HW_BW_VGZ_TE
+        if GPIO.input(12):
+            HW_BW_VGZ_TS = time.time()
+        if not GPIO.input(12):
+            HW_BW_VGZ_TE = time.time()
+            if HW_BW_VGZ_TE - HW_BW_VGZ_TS >= 0.2: # Tastendruckdauer min. 200 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Vorschub Ganz Zurück" kurz gedrückt')
+                self.ButtonPressed(15, 1, "ONOFF")
+                self._commandsstack.BUTTON("HW", "VZ", True)
 
 
     def HW_BW_SV(self, channel): # Hardware Button "Säge Vor" gedrückt
-        self.tools.verbose(self._verbose, 'Hardware-Button: "Säge Vor" gedrückt')
-        self.ButtonPressed(19, 1, "ONOFF")
-        self._commandsstack.BUTTON("HW", "SV")
+        global HW_BW_SV_TS
+        global HW_BW_SV_TE
+        if GPIO.input(16):
+            HW_BW_SV_TS = time.time()
+        if not GPIO.input(16):
+            HW_BW_SV_TE = time.time()
+            if HW_BW_SV_TE - HW_BW_SV_TS >= 1: # Tastendruckdauer min. 1000 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Säge Vor" lang gedrückt')
+                self.ButtonPressed(19, 1, "ONOFF". 10)
+                self._commandsstack.BUTTON("HW", "SV", True)
+            elif HW_BW_SV_TE - HW_BW_SV_TS >= 0.2: # Tastendruckdauer min. 200 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Säge Vor" kurz gedrückt')
+                self.ButtonPressed(19, 1, "ONOFF")
+                self._commandsstack.BUTTON("HW", "SV")
 
 
     def HW_BW_SZ(self, channel): # Hardware Button "Säge Zurück" gedrückt
-        self.tools.verbose(self._verbose, 'Hardware-Button: "Säge Zurück" gedrückt')
-        self.ButtonPressed(21, 1, "ONOFF")
-        self._commandsstack.BUTTON("HW", "SZ")
+        global HW_BW_SZ_TS
+        global HW_BW_SZ_TE
+        if GPIO.input(18):
+            HW_BW_SZ_TS = time.time()
+        if not GPIO.input(18):
+            HW_BW_SZ_TE = time.time()
+            if HW_BW_SZ_TE - HW_BW_SZ_TS >= 1: # Tastendruckdauer min. 1000 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Säge Zurück" lang gedrückt')
+                self.ButtonPressed(21, 1, "ONOFF", 10)
+                self._commandsstack.BUTTON("HW", "SZ", True)
+            elif HW_BW_SZ_TE - HW_BW_SZ_TS >= 0.2: # Tastendruckdauer min. 200 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Säge Zurück" kurz gedrückt')
+                self.ButtonPressed(21, 1, "ONOFF")
+                self._commandsstack.BUTTON("HW", "SZ")
 
 
     def HW_BW_S(self, channel): # Hardware Button "Sägen" gedrückt
-        self.tools.verbose(self._verbose, 'Hardware-Button: "Sägen" gedrückt')
-        self.ButtonPressed(23, 1, "ONOFF")
-        self._commandsstack.BUTTON("HW", "S")
+        global HW_BW_S_TS
+        global HW_BW_S_TE
+        if GPIO.input(22):
+            HW_BW_S_TS = time.time()
+        if not GPIO.input(22):
+            HW_BW_S_TE = time.time()
+            if HW_BW_S_TE - HW_BW_S_TS >= 0.5: # Tastendruckdauer min. 500 ms
+                self.tools.verbose(self._verbose, 'Hardware-Button: "Sägen" gedrückt')
+                self.ButtonPressed(23, 1, "ONOFF")
+                self._commandsstack.BUTTON("HW", "S")
 
 
     def CheckInput(self, debounce): # Prüft auf Tastendrücke mit Enprellzeit
-        GPIO.add_event_detect(3, GPIO.RISING, self.HW_BW_VV, bouncetime=debounce) # Taster Vorschub - Vor
-        GPIO.add_event_detect(5, GPIO.RISING, self.HW_BW_VZ, bouncetime=debounce) # Taster Vorschub - Zurück
-        GPIO.add_event_detect(12, GPIO.RISING, self.HW_BW_VGZ, bouncetime=debounce) # Taster Vorschub - Ganz Zurück
-        GPIO.add_event_detect(16, GPIO.RISING, self.HW_BW_SV, bouncetime=debounce) # Taster Säge - Vor
-        GPIO.add_event_detect(18, GPIO.RISING, self.HW_BW_SZ, bouncetime=debounce) # Taster Säge - Zurück
-        GPIO.add_event_detect(22, GPIO.RISING, self.HW_BW_S, bouncetime=debounce) # Taster Säge - Schneiden
+        GPIO.add_event_detect(3, GPIO.BOTH, self.HW_BW_VV, bouncetime=debounce) # Taster Vorschub - Vor
+        GPIO.add_event_detect(5, GPIO.BOTH, self.HW_BW_VZ, bouncetime=debounce) # Taster Vorschub - Zurück
+        GPIO.add_event_detect(12, GPIO.BOTH, self.HW_BW_VGZ, bouncetime=debounce) # Taster Vorschub - Ganz Zurück
+        GPIO.add_event_detect(16, GPIO.BOTH, self.HW_BW_SV, bouncetime=debounce) # Taster Säge - Vor
+        GPIO.add_event_detect(18, GPIO.BOTH, self.HW_BW_SZ, bouncetime=debounce) # Taster Säge - Zurück
+        GPIO.add_event_detect(22, GPIO.BOTH, self.HW_BW_S, bouncetime=debounce) # Taster Säge - Schneiden
 
 
     def CheckProximitySensor(self, debounce): # Prüft auf Annäherung an die Näherungssensoren
-        GPIO.add_event_detect(30, GPIO.RISING, callback=my_callback, bouncetime=debounce) # Näherungssensor - Säge Vor
-        GPIO.add_event_detect(31, GPIO.RISING, callback=my_callback, bouncetime=debounce) # Näherungssensor - Säge Zurück
+        GPIO.add_event_detect(30, GPIO.BOTH, callback=my_callback, bouncetime=debounce) # Näherungssensor - Säge Vor
+        GPIO.add_event_detect(31, GPIO.BOTH, callback=my_callback, bouncetime=debounce) # Näherungssensor - Säge Zurück
 
 
     def ButtonPressed(self, pinout, duration, effect, loops=1): #Erzeuge Effekt nach Tastendruck in neuen Thread

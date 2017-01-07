@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
 
-#VirToCut - Controlsoftware for dynamical Plate-Saw-Machine
+#VirToCut - Controlsoftware for a dynamical Plate-Saw-Machine
 #Copyright (C) 2016  Benjamin Hirmer - hardy at virtoreal.net
 
 #This program is free software: you can redistribute it and/or modify
@@ -140,15 +140,15 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 break
 
 
-    def BUTTON (self, buttontype, function): # Funktion für das Drücken eines Buttons in der Software oder auf der Hardware
+    def BUTTON (self, buttontype, function, secfunction=False): # Funktion für das Drücken eines Buttons in der Software oder auf der Hardware
         try:
             scalevalue = float(self._scale.get_text()) # Hole Schrittweite
-            xvalue = float(self._label_position[0].get_text()) # Hole Position X-Achse
-            yvalue = float(self._label_position[1].get_text()) # Hole Position Y-Achse
         except:
             self.tools.verbose(self._verbose, "Schrittweite noch nicht gesetzt, bitte korrigieren!")
             scalevalue = 0
-        if not self.blockbuttons: # Prüfen ob die Buttons freigegeben sind
+        xvalue = float(self._label_position[0].get_text()) # Hole Position X-Achse
+        yvalue = float(self._label_position[1].get_text()) # Hole Position Y-Achse
+        if not self.blockbuttons and (xvalue != "N/V" or yvalue != "N/V"): # Prüfen ob die Buttons freigegeben sind
             if buttontype == "SW": # Software-Buttons
                 if function == "GV": # Software-Button - Vorschub ganz vor
                     self.vorschub(2, 1000) #Code 2 = Benutzerausgeführt
@@ -176,25 +176,34 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 if function == "VV": # Hardware-Button - Vorschub vor
                     self.vorschub(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
                 elif function == "VZ": # Hardware-Button - Vorschub zurück
-                    self.rueckfahrt(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
-                elif function == "VGZ": # Hardware-Button - Vorschub ganz zurück
-                    self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
+                    if secfunction:
+                        self.rueckfahrt(2, 0) #Code 2 = Benutzerausgeführt
+                    else:
+                        self.rueckfahrt(2, self._settings['HPDS']['Schrittweite_Vorschub']) #Code 2 = Benutzerausgeführt
                 elif function == "SV": # Hardware-Button - Säge vor
+                    if secfunction: # Hardware-Button - "Säge vor" lange gedrückt -> Säge ganz ausfahren
+                        distance = self._settings['PDS']['Fahrbare_Strecke']
+                    else: # Hardware-Button - "Säge vor" kurz gedrückt -> Säge um Schrittweite ausfahren
+                        distance = self._settings['HPDS']['Schrittweite_Saege']
                     if xvalue == self._settings['PDS']['Fahrbare_Strecke']: # Säge ist bereits ganz ausgefahren
                         self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
-                    elif self._settings['HPDS']['Schrittweite_Saege'] + xvalue > self._settings['PDS']['Fahrbare_Strecke']: #Prüfe ob Platz frei um vor zu fahren
+                    elif distance + xvalue > self._settings['PDS']['Fahrbare_Strecke']: #Prüfe ob Platz frei um vor zu fahren
                         cdist = self._settings['PDS']['Fahrbare_Strecke'] - xvalue
                     else:
-                        cdist = self._settings['HPDS']['Schrittweite_Saege']
+                        cdist = distance
                     self._serial.sending('G91\nG0 X%s\nG90' % str(cdist), 2)
                     self._label_position[0].set_text(str(xvalue + cdist))
                 elif function == "SZ": # Hardware-Button - Säge zurück
+                    if secfunction: # Hardware-Button - "Säge zurück" lange gedrückt -> Säge ganz einfahren
+                        distance = self._settings['PDS']['Fahrbare_Strecke']
+                    else: # Hardware-Button - "Säge zurück" kurz gedrückt -> Säge um Schrittweite einfahren
+                        distance = self._settings['HPDS']['Schrittweite_Saege']
                     if xvalue == 0: # Säge ist bereits ganz eingefahren
                         self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
-                    elif xvalue < self._settings['HPDS']['Schrittweite_Saege']: #Prüfe ob Platz frei um zurück zu fahren
+                    elif xvalue < distance: #Prüfe ob Platz frei um zurück zu fahren
                         cdist = xvalue
                     else:
-                        cdist = self._settings['HPDS']['Schrittweite_Saege']
+                        cdist = distance
                     self._serial.sending('G91\nG0 X-%s\nG90' % str(cdist), 2)
                     self._label_position[0].set_text(str(xvalue - cdist))
                 elif function == "S" and self.svprogress and self.__confirmedstate == "HW": #Hardware-Button - "Schneiden" wurde im Programmmodus betätigt
@@ -204,6 +213,8 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.sequenced_sending(2, 'HW') #Bestätige ersten G-Code Block zum abfertigen
                 elif function == "S": # Hardware-Button - Schneiden
                     self.schneiden(True, xvalue, self.getmaterialthickness())
+        else:
+            self.tools.verbose(self._verbose, "Die Buttons werden momentan von der Software blockiert")
 
 
     def cutting_template_interpreter (self, cutting_template): # Interpretiert die Schneidvorlage und wandelt diesen in G-Code um
@@ -513,6 +524,8 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     else: # Ansonsten den ToggleButton deaktivieren und max. Sägenposition wieder auf voll ausgefahren definieren
                         self.toggle_ms(False, True) # Deaktiviere max. Sägenposition "Überschreiben" Togglebutton
                         maxdistance = self._settings['PDS']['Fahrbare_Strecke']
+                else: # Ansonsten als vollständig auszufahren ansehen
+                    maxdistance = self._settings['PDS']['Fahrbare_Strecke']
                 minxdistance = self._settings['PDS']['Abstand_Saegeblatt_zum_Materialanschlag']
                 if not self.svprogress: #Wenn kein Programm läuft
                     if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
