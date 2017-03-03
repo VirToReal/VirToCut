@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#VirToCut - Controlsoftware for dynamical Plate-Saw-Machine
+#VirToCut - Controlsoftware for a dynamical Plate-Saw-Machine
 #Copyright (C) 2016  Benjamin Hirmer - hardy at virtoreal.net
 
 #This program is free software: you can redistribute it and/or modify
@@ -33,6 +33,10 @@ from CommandsStack import *
 
 gladefile = "ControllGUI_9.glade"
 oksig = "ok" # Marlin gibt dies als Bestätigung von Kommandos aus
+ps_on_sig = "M80" # G-Code zum Einschalten der Spannungsversorgung
+ps_off_sig = "M81" # G-Code zum Ausschalten der Spannungsversorgung
+ps_timeout = 30000 # Zeit in ms bis das Netzteil sich Ausschalten soll
+checksequencetime = 1000 # Zeit in ms auf die nach Änderungen am Programm geprüft werden soll
 
 class Windows:
     def __init__(self):
@@ -52,6 +56,7 @@ class Windows:
 
         #Variablen
         self.connected = False # Variable dessen Zustand der der seriellen Verbindung ist
+        self.timeoutcount = 0 # Variable die sich mit der timeout-Hauptschleife hochzählt
 
         #Verknüpfe Objekte der GUI mit Python
         #Bewegung
@@ -74,7 +79,7 @@ class Windows:
         self.serialscrolledwindow = self.builder.get_object("SerialScrolledWindow")
         self.serialsenden = self.builder.get_object("SerialSenden") #Button - Terminal/Text über serielle Schnittstelle senden
         self.serialtext = self.builder.get_object("SerialText") #Textfeld - Terminal/Text
-        GObject.timeout_add(1000, self.timeout) # Hauptschleife ruft diese Funktion in etwa jeder Sekunde auf
+        GObject.timeout_add(checksequencetime, self.timeout) # Hauptschleife ruft diese Funktion in den mit "checksequencetime" definierten Interval auf
 
         #Notebook - Schneidvorlage
         self.menu_sv_neu = self.builder.get_object("MENU_SV_Neu") # Menüitem Schneidvorlage/Neu
@@ -183,10 +188,8 @@ class Windows:
                         self._serialsession = SerialCommunication(self._verbose, self.tools, i[0], i[1], i[2], i[3], oksig, self.if_vb_status, self.if_vb_vb, self.if_vb_tr, self.if_vb_rs) #Baue Verbindung zu Arduino auf
                         try:
                             if self._serialsession.sc.isOpen(): # Wenn Verbindung besteht
-                                self._commandsstack = CommandsStack(self._verbose, self.tools, self._serialsession, self.bw_sk_v, self.ab_mdl, self.if_st_pos_tuple, self.schneidvorlage_tuple, self.if_st_tuple) #Bereite vordefinierte G-Code Arbeitsschritte
-                                self.gpioner = GPIOner(self._verbose, self.tools, self._commandsstack) #Initalisiere den GPIO auf dem Raspberry
-                                self._commandsstack.gpioner = self.gpioner # Erzeuge Attribut von GPIOner Instanz in der CommandsStack Klasse
-                                self._serialsession.gpioner = self.gpioner # Erzeuge Attribut von GPIOner Instanz in der SerialSession Klasse
+                                self.gpioner = GPIOner(self._verbose, self.tools) #Initalisiere den GPIO auf dem Raspberry
+                                self._commandsstack = CommandsStack(self._verbose, self.tools, self._serialsession, self.bw_sk_v, self.ab_mdl, self.if_st_pos_tuple, self.schneidvorlage_tuple, self.if_st_tuple, self.gpioner) #Bereite vordefinierte G-Code Arbeitsschritte
                                 self.if_vb_verb.set_text("Verbunden auf Port") # Passe Überschrift von ComboboxText (Ports) an
                                 self.operability(True) #Setzte alle Buttons die mit der seriellen Verbindung in "Verbindung" stehen auf Aktiv
                                 self.dia_file = DIA_FILE(self.builder) #Erzeuge Datei-Dialog
@@ -501,7 +504,25 @@ class Windows:
                                     else: #Ansonsten nächsten G-Code Block abarbeiten
                                         self._commandsstack.sequenced_sending(2) #Bestätigen das ein G-Code Block abgearbeitet wurde
 
-            #TODO hier Funktion für automatisches Ein,- und Ausschalten des Netzteils
+            if not self.gpioner.buttonbuffer.empty(): # Prüfe auch ob der ButtonBuffer der GPIO-Schnittstelle gedrückte Hardwaretasten beeinhaltet
+                while True: # alle bisher enthaltenen Objekte abholen
+                    if self.gpioner.buttonbuffer.empty(): # damit aufhören wenn Buffer leergeräumt wurde
+                        break
+                    entry = self.gpioner.buttonbuffer.get_nowait() # hole Tastendruck ohne abzuwarten
+                    self._commandsstack.BUTTON("HW", entry[0], entry[1]) #Führe Hardware-Tastendruck in der CommandsStack-Klasse aus
+
+            if self._commandsstack.supply_on: # Prüfe ob die Einschaltung der Spannungsversorgung veranlasst wurde
+                if not self._commandsstack.supply: # Spannungsversorgung nur einmal Einschalten
+                    self._serialsession.sending(ps_on_sig, True) # sende Kommando zum Einschalten der Spannungsversorgung
+                    self._commandsstack.supply = True # Spannungsversorgung ist Eingeschalten
+                    self._commandsstack.supply_on = False # Ausschaltung veranlassen
+            else:
+                if self._commandsstack.supply == True: # Spannungsversorgung nur Ausschalten wenn auch Eingeschaltet
+                    self.timeoutcount += 1 # timeout-Hauptschleife hochzählen so lange Netzteil noch Eingeschalten sein soll
+                    if self.timeoutcount >= ps_timeout / checksequencetime: # Beim Erreichen des Intervals die Spannungsversorgung Ausschalten
+                        self._serialsession.sending(ps_off_sig, True) # sende Kommando zum Ausschalten der Spannungsversorgung
+                        self._serialsession.supply = False # Spannungsversorgung ist Ausgeschaltet
+                        self.timeoutcount = 0 # timeout-Hauptschleife zurücksetzen
 
         except AttributeError: # Sollte noch keine serielle Verbindung bestehen, existiert das Objekt auch noch nicht
             pass

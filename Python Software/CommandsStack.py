@@ -31,7 +31,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
     _verbose = False
     _safety_blade_distance = 2 # Abstand von Schneidmesser zum Material beim Vorschub wenn Säge entgegengesetzt schneidet
 
-    def __init__ (self, verbose, tools, serialsession, scale, material, label_position, schneidvorlage_items, status_items): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
+    def __init__ (self, verbose, tools, serialsession, scale, material, label_position, schneidvorlage_items, status_items, gpioner): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
 
         self._verbose = verbose # Verbose-Modus überladen
         self._serial = serialsession # Instanz von momentaner seriellen Verbindung
@@ -40,11 +40,14 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         self._label_position = label_position #Tupel mit den GTK.Labels zum darstellen der momentanen X/Y/Z Position
         self._schneidvorlage_items = schneidvorlage_items #Tupel mit allen für die Schneidvorlage notwendigen GTK Elemente
         self._status_items = status_items #Tupel mit GTK-Elementen für die Darstellung in der Statusanzeige
+        self.gpioner = gpioner #Instanz des initialisierten GPIO-Ports des Raspberrys
 
         self.svprogress = False # Verarbeitung der Schneidvolage als deaktiviert initialisieren
         self.blockbuttons = False # Zugriff auf Hardware/Software Buttons prinzipiell erlauben
         self.feedsvalue = 0 # Gesamtvorschub einer erzeugten Interpreter-Instanz mit '0' initialisieren
         self.__cutvalue = False # Maximale Sägenposition bei entgegengesetzter Schneidrichtung als vollständig auszufahren ansehen
+        self.supply_on = False # Spannungsversorgung nicht veranlassen Einzuschalten
+        self.supply = None # Zustand der Spannungsversorgung
 
         self.tools = tools # Übergebe Tools Klasse
         self.load() # Lade schon einmal die aktuellen G-Codes
@@ -141,6 +144,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def BUTTON (self, buttontype, function, secfunction=False): # Funktion für das Drücken eines Buttons in der Software oder auf der Hardware
+        self.supply_on = True # Einschaltung der Spannungsversorgung veranlassen
         try:
             scalevalue = float(self._scale.get_text()) # Hole Schrittweite
         except:
@@ -187,12 +191,14 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         distance = self._settings['HPDS']['Schrittweite_Saege']
                     if xvalue == self._settings['PDS']['Fahrbare_Strecke']: # Säge ist bereits ganz ausgefahren
                         self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
+                        cdist = 0
                     elif distance + xvalue > self._settings['PDS']['Fahrbare_Strecke']: #Prüfe ob Platz frei um vor zu fahren
                         cdist = self._settings['PDS']['Fahrbare_Strecke'] - xvalue
                     else:
                         cdist = distance
-                    self._serial.sending('G91\nG0 X%s\nG90' % str(cdist), 2)
-                    self._label_position[0].set_text(str(xvalue + cdist))
+                    if cdist > 0:
+                        self._serial.sending('G91\nG0 X%s\nG90' % str(cdist), 2)
+                        self._label_position[0].set_text(str(xvalue + cdist))
                 elif function == "SZ": # Hardware-Button - Säge zurück
                     if secfunction: # Hardware-Button - "Säge zurück" lange gedrückt -> Säge ganz einfahren
                         distance = self._settings['PDS']['Fahrbare_Strecke']
@@ -200,19 +206,21 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         distance = self._settings['HPDS']['Schrittweite_Saege']
                     if xvalue == 0: # Säge ist bereits ganz eingefahren
                         self.gpioner.ButtonPressed(0, 1, 'MovementError', 3) #Lasse Bewegungs-Buttons auf Bedienpaneel 3x blinken
+                        cdist = 0
                     elif xvalue < distance: #Prüfe ob Platz frei um zurück zu fahren
                         cdist = xvalue
                     else:
                         cdist = distance
-                    self._serial.sending('G91\nG0 X-%s\nG90' % str(cdist), 2)
-                    self._label_position[0].set_text(str(xvalue - cdist))
+                    if cdist > 0:
+                        self._serial.sending('G91\nG0 X-%s\nG90' % str(cdist), 2)
+                        self._label_position[0].set_text(str(xvalue - cdist))
                 elif function == "S" and self.svprogress and self.__confirmedstate == "HW": #Hardware-Button - "Schneiden" wurde im Programmmodus betätigt
                     if self.gcodeblock == 0:
                         self.sequenced_sending(1, 'HW') #Bestätige ersten G-Code Block zum abfertigen
                     elif self.gcodeblock > 0:
                         self.sequenced_sending(2, 'HW') #Bestätige ersten G-Code Block zum abfertigen
                 elif function == "S": # Hardware-Button - Schneiden
-                    self.schneiden(True, xvalue, self.getmaterialthickness())
+                    self.schneiden(True, 0, self.getmaterialthickness())
         else:
             self.tools.verbose(self._verbose, "Die Buttons werden momentan von der Software blockiert")
 
@@ -488,20 +496,27 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     def schneiden (self, user, distance, materialthickness=None): #Arbeitsschritt - Gcode der beim Schneiden erzeugt wird
         if self.checkgcode('SCHNEIDEN') and self.checkgcode('ANPRESSEN') and self.checkgcode('FREIGEBEN'):
-            if distance <= self._settings['PDS']['Fahrbare_Strecke']:
+            if distance < self._settings['PDS']['Fahrbare_Strecke']:
+                xvalue = float(self._label_position[0].get_text()) #Hole Position Säge
                 if user: #Bei manuellen 'schneiden' Material auch anpressen
-                    if distance > 0: #Säge sollte mindest > 0 sein vor dem Material stehen
-                        if materialthickness != None: #Materialstärke sollte ausgewählt sein
-                            newgcode = self.vorschub(user, self._settings['PDS']['Schnittbreite']) #Schiebe Material um eine Sägeblattbreite nach vorn
-                            newgcode = newgcode + "\n" + self.anpressen(user, materialthickness) #Hole 'Anpressen' G-Code
-                            newgcode = newgcode + "\n" + self.checkvalue(self._gcode['SCHNEIDEN'], 0, False, 'SCHNEIDEN') #Hänge angepassten G-Code für das 'Schneiden' an
-                            newgcode = newgcode + "\n" + self.freigeben(user) #Hänge 'Freigeben' G-Code an
-                            self._serial.sending(newgcode, user) #Anpressen + Schneiden + Freigeben an den seriellen Port schicken
+                    if materialthickness != None: #Materialstärke sollte ausgewählt sein
+                        if self.checkmaxcut_value: #Wenn Säge entgegengesetzt schneidet #TODO hier evtl. optimieren
+                            distance = 0 #Säge komplett einfahren lassen
                         else:
-                            self.tools.verbose(self._verbose, "kann keinen Schneiddurchlauf starten, da kein Särke für das Material zum anpressen erhalten")
+                            distance = self._settings['PDS']['Fahrbare_Strecke'] #Säge komplett ausfahren lassen
+                        try:
+                            newgcode = self.vorschub(user, self._settings['PDS']['Schnittbreite']) #Schiebe Material um eine Sägeblattbreite nach vorn
+                            newgcode = newgcode + "\n" + self.anpressen(False, materialthickness) #Hole 'Anpressen' G-Code
+                            newgcode = newgcode + "\n" + self.checkvalue(self._gcode['SCHNEIDEN'], distance, False, 'SCHNEIDEN') #Hänge angepassten G-Code für das 'Schneiden' an
+                            newgcode = newgcode + "\n" + self.freigeben(False) #Hänge 'Freigeben' G-Code an
+                            self._serial.sending(newgcode, user) #Anpressen + Schneiden + Freigeben an den seriellen Port schicken
+                        except:
+                            self.tools.verbose(self._verbose, "beim Versuch die Säge zu Bewegen ist ein Fehler aufgetreten")
                     else:
-                        self.tools.verbose(self._verbose, "kann keinen Schneiddurchlauf starten, da Säge nicht ausgefahren")
-                else:
+                        self.tools.verbose(self._verbose, "kann keinen Schneiddurchlauf starten, da keine Särke für das Material zum anpressen erhalten")
+                else: #Bei automatischen 'schneiden'
+                    if self.checkmaxcut_value: #Wenn Säge entgegengesetzt schneidet
+                        distance = self.maxvlstack[self.gcodeblock] - distance #Übergebe Distanz für entgegengesetzte Richtung
                     newgcode = self.checkvalue(self._gcode['SCHNEIDEN'], distance, False, 'SCHNEIDEN')
                     if newgcode:
                         return newgcode #Angepassten G-Code zurück zum Programmgenerator
@@ -536,7 +551,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         errortext = "Säge muss eingefahren sein"
                 else: #Falls programm läuft
                     if self.checkmaxcut_value: #Prüfe ob Säge entgegengesetzt schneidet
-                        max_cut = self.maxvlstack[self.gcodeblock] #Den Wert dem aktiven Block entnehmen
+                        max_cut = self.maxvlstack[self.gcodeblock] #Die maximale Plattenbreite dem aktiven Block entnehmen
                         errortext = "Säge muss mindestens " + str(max_cut) + "mm ausgefahren sein"
                     else:
                         max_cut = False #Säge muss eingeparkt sein
