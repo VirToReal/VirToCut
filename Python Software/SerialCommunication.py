@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#VirToCut - Controlsoftware for dynamical Plate-Saw-Machine
+#VirToCut - Controlsoftware for a dynamical Plate-Saw-Machine
 #Copyright (C) 2016  Benjamin Hirmer - hardy at virtoreal.net
 
 #This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@ try:
 except:
         print('kein pySerial gefunden, bitte mit "sudo apt-get install python3-serial" nachinstallieren! ')
 
-
+ps_on_sig = "M80" # G-Code zum Einschalten der Spannungsversorgung
 
 class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die Serielle Schnittstelle
 
@@ -61,6 +61,9 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
             self.connectbutton = connectbutton
             self.disconnectbutton = disconnectbutton
             self.resetbutton = resetbutton
+
+            # Steuerung Spannungsversorgung
+            self.supply = None # Zustand der Spannungsversorgung
 
             self.tools.verbose(self._verbose, "Öffne Serielle Verbindung auf Port: " + port) # Debug Info
             self.statuslabel.set_text("Verbinde...") # Ändere Label im Verbindungsfenster
@@ -109,7 +112,6 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
 
 
         def stopsending (self): # Stoppt das ausführen und senden von G-Code und resettet den Arduino (da Arduino-Buffer ebenfalls noch G-Code enthält)
-            print ("Breche ab")
             self.writethread_stop.set() # Übergebe Sendeschleife ein Stop-Signal
             self.sendingthread.join() # Lasse geschlossenen Thread mit Main-Thread aufschließen
             self.reset() # Resette Arduino
@@ -120,6 +122,9 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
             rows = 0 #zu sendende G-Code Zeilen auf 0 setzen
             self.writethread_stop = threading.Event()
             gcodelist = []
+            if not self.supply: #ist das Netzteil noch nicht eingeschaltet -> Einschalten #TODO G-Code Befehle definieren bei der die Spannungsversorgung eingeschaltet werden soll
+                gcode = ps_on_sig + '\n' + gcode #Kommando dafür den zu sendenen Befehl vorne anfügen
+                self.supply = True #Spannungsversorgung Eingeschaltet
             for gcoderow in gcode.split('\n'): #Säubere G-Code Zeilen und zähle zu sendene Zeilen hoch für eine Fortschrittsanzeige
                 gcoderow = gcoderow.strip() # Entferne Whitespace
                 gcoderow = gcoderow.replace("\t",'') # Lösche Tabulatoren

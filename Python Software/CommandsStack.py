@@ -46,8 +46,6 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         self.blockbuttons = False # Zugriff auf Hardware/Software Buttons prinzipiell erlauben
         self.feedsvalue = 0 # Gesamtvorschub einer erzeugten Interpreter-Instanz mit '0' initialisieren
         self.__cutvalue = False # Maximale Sägenposition bei entgegengesetzter Schneidrichtung als vollständig auszufahren ansehen
-        self.supply_on = False # Spannungsversorgung nicht veranlassen Einzuschalten
-        self.supply = None # Zustand der Spannungsversorgung
 
         self.tools = tools # Übergebe Tools Klasse
         self.load() # Lade schon einmal die aktuellen G-Codes
@@ -87,15 +85,15 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             self.tools.verbose(self._verbose, "keine G-Codes unter 'Einstellungen' angelegt")
 
 
-    def checkvalue (self, gcode, value, constant, section): # Ersetzt Platzhalter <value>/<time_saw>/<time_vac> dem zugehörigen Wert
+    def checkvalue (self, gcode, value, placeholder, constant, section): # Ersetzt Platzhalter <placeholder>/<time_saw>/<time_vac> dem zugehörigen Wert
         gcode = gcode.replace('<time_saw>', str(self._settings['PDS']['Nachlaufzeit_Saege'])) # Ersetzt <time_saw> mit Wert aus Einstellungen
         gcode = gcode.replace('<time_vac>', str(self._settings['PDS']['Nachlaufzeit_Staubsauger'])) # Ersetzt <time_vac> mit Wert aus Einstellungen
         if constant:  # Wenn nur auf Konstanten geprüft werden soll, Platzhalter für <value> ignorieren
             return gcode
         else:
-            if '<value>' in gcode:
+            if '<' + placeholder + '>' in gcode: # Prüfe ob Platzhalter im G-Code
                 if value != None:
-                    return gcode.replace('<value>', str(value))
+                    return gcode.replace('<' + placeholder + '>', str(value))
                 else:
                     self.tools.verbose(self._verbose, "kein Distanzwert für diesen Arbeitsschritt '" + section + "' erhalten, wird aber in diesen Arbeitsschritt dringend benötigt!")
                     return False
@@ -144,7 +142,6 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def BUTTON (self, buttontype, function, secfunction=False): # Funktion für das Drücken eines Buttons in der Software oder auf der Hardware
-        self.supply_on = True # Einschaltung der Spannungsversorgung veranlassen
         try:
             scalevalue = float(self._scale.get_text()) # Hole Schrittweite
         except:
@@ -469,17 +466,17 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
 
     def vorherig (self): #Arbeitsschritt - Gcode der vor den Programmstart aufgerufen wird
-        return self.checkvalue(self._gcode['VORHERIG'], None, True, 'VORHERIG') #G-Code zurück zum Programmgenerator
+        return self.checkvalue(self._gcode['VORHERIG'], None, 'value', True, 'VORHERIG') #G-Code zurück zum Programmgenerator
 
 
     def nachfolgend (self): #Arbeitsschritt - Gcode der nach den Programm aufgerufen wird
-        return self.checkvalue(self._gcode['NACHFOLGEND'], None, True, 'NACHFOLGEND') #G-Code zurück zum Programmgenerator
+        return self.checkvalue(self._gcode['NACHFOLGEND'], None, 'value', True, 'NACHFOLGEND') #G-Code zurück zum Programmgenerator
 
 
     def anpressen (self, user, materialthickness): #Arbeitsschritt - Gcode der beim Anpressen erzeugt wird
         if self.checkgcode('ANPRESSEN'):
             if materialthickness != None: #Materialstärke sollte ausgewählt sein
-                newgcode = self.checkvalue(self._gcode['ANPRESSEN'], float(self._settings['PDA']['Fahrbare_Strecke']) - float(materialthickness), False, 'ANPRESSEN') #Ersetze <value> mit den Wert der fahrbaren Strecke abz. der Materialdicke
+                newgcode = self.checkvalue(self._gcode['ANPRESSEN'], float(self._settings['PDA']['Fahrbare_Strecke']) - float(materialthickness), 'value', False, 'ANPRESSEN') #Ersetze <value> mit den Wert der fahrbaren Strecke abz. der Materialdicke
                 if newgcode:
                     if user:
                         self._serial.sending(newgcode, user) #Wenn von Benutzer ausgelöst, direkt an die serielle Schnittstelle senden
@@ -500,24 +497,35 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 xvalue = float(self._label_position[0].get_text()) #Hole Position Säge
                 if user: #Bei manuellen 'schneiden' Material auch anpressen
                     if materialthickness != None: #Materialstärke sollte ausgewählt sein
-                        if self.checkmaxcut_value: #Wenn Säge entgegengesetzt schneidet #TODO hier evtl. optimieren
+                        if self.__cutvalue and xvalue == self.__cutvalue: # Prüfe ob ein manuelles "Überschreiben" der max. Sägenposition vom Anwender vorliegt und auch an richtiger Position steht
+                            maxdistance = self.__cutvalue #<max_cut> als Ausgangspunkt akzeptieren
                             distance = 0 #Säge komplett einfahren lassen
-                        else:
+                        elif self.checkmaxcut_value and xvalue == self._settings['PDS']['Fahrbare_Strecke']: # Säge schneidet in rückwärts-Richtung und ist vollständig ausgefahren
+                            maxdistance = self._settings['PDS']['Fahrbare_Strecke'] #momentane Position als Ausgangspunkt akzeptieren
+                            distance = 0 #Säge komplett einfahren lassen
+                        elif not self.checkmaxcut_value and xvalue <= 0: # Säge schneidet in vorwärts-Richtung und befindet sich im Schutzbereich
+                            maxdistance = self._settings['PDS']['Fahrbare_Strecke'] #Platzhalter hier eigentlich nicht nötig, bei Verwendung dennoch belegen
                             distance = self._settings['PDS']['Fahrbare_Strecke'] #Säge komplett ausfahren lassen
+                        else: # Säge ist falsch positioniert
+                            self.tools.verbose(self._verbose, "Säge läuft Gefahr vom Vorschub beschädigt zu werden, Aktion verweigert!", True)
+                            if self.checkmaxcut_value:
+                                self.toggle_ms(False, True) # Deaktiviere max. Sägenposition "Überschreiben" Togglebutton
+                            return False # Funktion verlassen
                         try:
-                            newgcode = self.vorschub(user, self._settings['PDS']['Schnittbreite']) #Schiebe Material um eine Sägeblattbreite nach vorn
+                            gcode = self.checkvalue(self._gcode['SCHNEIDEN'], distance, 'value', False, 'SCHNEIDEN') #Hänge angepassten G-Code für das 'Schneiden' an
+                            gcode = self.checkvalue(gcode, maxdistance, 'max_cut', False, 'SCHNEIDEN') #Hänge angepassten G-Code für das 'Schneiden' an
+
+                            newgcode = self.vorschub(False, self._settings['PDS']['Schnittbreite']) #Schiebe Material um eine Sägeblattbreite nach vorn
                             newgcode = newgcode + "\n" + self.anpressen(False, materialthickness) #Hole 'Anpressen' G-Code
-                            newgcode = newgcode + "\n" + self.checkvalue(self._gcode['SCHNEIDEN'], distance, False, 'SCHNEIDEN') #Hänge angepassten G-Code für das 'Schneiden' an
+                            newgcode = newgcode + "\n" + gcode #Optimierten 'Schneiden' G-Code einsetzen
                             newgcode = newgcode + "\n" + self.freigeben(False) #Hänge 'Freigeben' G-Code an
                             self._serial.sending(newgcode, user) #Anpressen + Schneiden + Freigeben an den seriellen Port schicken
                         except:
-                            self.tools.verbose(self._verbose, "beim Versuch die Säge zu Bewegen ist ein Fehler aufgetreten")
+                            self.tools.verbose(self._verbose, "beim Versuch die Säge zu Bewegen ist ein Fehler aufgetreten", True)
                     else:
-                        self.tools.verbose(self._verbose, "kann keinen Schneiddurchlauf starten, da keine Särke für das Material zum anpressen erhalten")
+                        self.tools.verbose(self._verbose, "kann keinen Schneiddurchlauf starten, da keine Särke für das Material zum anpressen erhalten", True)
                 else: #Bei automatischen 'schneiden'
-                    if self.checkmaxcut_value: #Wenn Säge entgegengesetzt schneidet
-                        distance = self.maxvlstack[self.gcodeblock] - distance #Übergebe Distanz für entgegengesetzte Richtung
-                    newgcode = self.checkvalue(self._gcode['SCHNEIDEN'], distance, False, 'SCHNEIDEN')
+                    newgcode = self.checkvalue(self._gcode['SCHNEIDEN'], distance, 'value', False, 'SCHNEIDEN')
                     if newgcode:
                         return newgcode #Angepassten G-Code zurück zum Programmgenerator
                     else:
@@ -577,7 +585,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
         else: #Bei automatischen Vorschub
             if distance + self.feedsvalue + float(self._label_position[3].get_text()) <= self._settings['PDV']['Fahrbare_Strecke']:
                 if self.checkgcode('VORSCHUB'):
-                    newgcode = self.checkvalue(self._gcode['VORSCHUB'], distance, False, 'VORSCHUB') #G-Code zurück zum Programmgenerator
+                    newgcode = self.checkvalue(self._gcode['VORSCHUB'], distance, 'value', False, 'VORSCHUB') #G-Code zurück zum Programmgenerator
                     if newgcode:
                         return newgcode #Angepassten G-Code zurück zum Programmgenerator
                     else:
@@ -588,7 +596,6 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 self.tools.verbose(self._verbose, "Vorschubdistanz überschreitet die eingestellte fahrbare Stecke des Vorschubs")
                 self.__error = True #Teile Benutzer mit, das Probleme aufgetreten sind
             self.feedsvalue += distance # Addiere Vorschubdistanz auf momentane Interpreter-Instanz
-
 
 
     def rueckfahrt (self, user, distance): #Arbeitsschritt - G-Gode der bei der Rückfahrt erzeugt wird
@@ -621,7 +628,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                 self.tools.verbose(self._verbose, "keine absolute Position des Vorschubs vorhanden, bitte Maschine vorher 'homen'!", True)
         else:
             if self.checkgcode('RUECKFAHRT'):
-                newgcode = self.checkvalue(self._gcode['RUECKFAHRT'], distance, False, 'RUECKFAHRT') #G-Code zurück zum Programmgenerator
+                newgcode = self.checkvalue(self._gcode['RUECKFAHRT'], distance, 'value', False, 'RUECKFAHRT') #G-Code zurück zum Programmgenerator
                 if newgcode:
                     return newgcode #Angepassten G-Code zurück zum Programmgenerator
                 else:
@@ -632,7 +639,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     def freigeben (self, user): #Arbeitsschritt - Gcode der bei der beim Freigeben erzeugt wird
         if self.checkgcode('FREIGEBEN'):
-            newgcode = self.checkvalue(self._gcode['FREIGEBEN'], 0, False, 'FREIGEBEN')
+            newgcode = self.checkvalue(self._gcode['FREIGEBEN'], 0, 'value', False, 'FREIGEBEN')
             if newgcode:
                 if user:
                     self._serial.sending(newgcode, user) #Wenn von Benutzer ausgelöst, direkt an die serielle Schnittstelle senden

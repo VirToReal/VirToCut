@@ -33,9 +33,8 @@ from CommandsStack import *
 
 gladefile = "ControllGUI_9.glade"
 oksig = "ok" # Marlin gibt dies als Bestätigung von Kommandos aus
-ps_on_sig = "M80" # G-Code zum Einschalten der Spannungsversorgung
 ps_off_sig = "M81" # G-Code zum Ausschalten der Spannungsversorgung
-ps_timeout = 30000 # Zeit in ms bis das Netzteil sich Ausschalten soll
+ps_timeout = 120000 # Zeit in ms bis das Netzteil sich Ausschalten soll
 checksequencetime = 1000 # Zeit in ms auf die nach Änderungen am Programm geprüft werden soll
 
 class Windows:
@@ -464,6 +463,7 @@ class Windows:
 
     def timeout (self): # Operationen die in einem definierten Zeitintervall von der Hauptschleife (am Schluss) aufgerufen werden (Es kann je nach Auslastung dabei zu Verzögerungen kommen)
         try: # Versuche _serialsession (Serielle Sitzung) aufzufinden,
+
             if not self._serialsession.idlebuffer.empty(): # Wenn diese existiert und dessen Buffer Informationen enthält
                 while True: # alle bisher enthaltenen Objekte abholen
                     if self._serialsession.idlebuffer.empty(): # damit aufhören wenn Buffer leergeräumt wurde
@@ -511,23 +511,20 @@ class Windows:
                     entry = self.gpioner.buttonbuffer.get_nowait() # hole Tastendruck ohne abzuwarten
                     self._commandsstack.BUTTON("HW", entry[0], entry[1]) #Führe Hardware-Tastendruck in der CommandsStack-Klasse aus
 
-            if self._commandsstack.supply_on: # Prüfe ob die Einschaltung der Spannungsversorgung veranlasst wurde
-                if not self._commandsstack.supply: # Spannungsversorgung nur einmal Einschalten
-                    self._serialsession.sending(ps_on_sig, True) # sende Kommando zum Einschalten der Spannungsversorgung
-                    self._commandsstack.supply = True # Spannungsversorgung ist Eingeschalten
-                    self._commandsstack.supply_on = False # Ausschaltung veranlassen
-            else:
-                if self._commandsstack.supply == True: # Spannungsversorgung nur Ausschalten wenn auch Eingeschaltet
+            if self._serialsession.supply == True: # Spannungsversorgung nur versuchen Auszuschalten wenn auch Eingeschaltet
+                if not self._commandsstack.svprogress: # Spannungsversorgung bei automatischen Abläufen nicht beeinflussen
                     self.timeoutcount += 1 # timeout-Hauptschleife hochzählen so lange Netzteil noch Eingeschalten sein soll
-                    if self.timeoutcount >= ps_timeout / checksequencetime: # Beim Erreichen des Intervals die Spannungsversorgung Ausschalten
-                        self._serialsession.sending(ps_off_sig, True) # sende Kommando zum Ausschalten der Spannungsversorgung
-                        self._serialsession.supply = False # Spannungsversorgung ist Ausgeschaltet
-                        self.timeoutcount = 0 # timeout-Hauptschleife zurücksetzen
+                if self.timeoutcount >= ps_timeout / checksequencetime: # Beim Erreichen des Intervals die Spannungsversorgung Ausschalten
+                    self._serialsession.sending(ps_off_sig, False) # sende Kommando zum Ausschalten der Spannungsversorgung
+                    self._serialsession.supply = False # Spannungsversorgung ist Ausgeschaltet
+                    self.timeoutcount = 0 # timeout-Hauptschleife zurücksetzen
 
-        except AttributeError: # Sollte noch keine serielle Verbindung bestehen, existiert das Objekt auch noch nicht
+            print (str(self._serialsession.supply) + str(self.timeoutcount))
+
+        except AttributeError: # Sollte noch keine serielle Verbindung bestehen, existieren die Objekte auch noch nicht
             pass
 
-        #except Exception as errortext: # Läuft irgendetwas schief, Errortext in Debug-Log schreiben
+        #except Exception as errortext: # Läuft irgendetwas schief, Errortext in Debug-Log schreiben #TODO
             #self.tools.verbose(self._verbose, "Die Main-Loop Erweiterung in der Timout-Funktion berichtet folgenden Fehler:\n" + str(errortext))
             #pass
         return True # !!Sehr Wichtig!! Sonst wird diese Funktion nur 1x aufgerufen
