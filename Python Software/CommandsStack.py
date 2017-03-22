@@ -25,11 +25,12 @@
 # Netzteil automatisch an,- und abschalten (ControlGUI.py)
 # Erzeugte Schneidvorlage verwerfen wenn Vorschub bewegt wird
 
+safety_blade_distance = 2 # Abstand von Schneidmesser zum Material beim Vorschub wenn Säge entgegengesetzt schneidet
+
 class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
 
     # Vorinitialisierte Werte von Privaten Variablen:
     _verbose = False
-    _safety_blade_distance = 2 # Abstand von Schneidmesser zum Material beim Vorschub wenn Säge entgegengesetzt schneidet
 
     def __init__ (self, verbose, tools, serialsession, scale, material, label_position, schneidvorlage_items, status_items, gpioner): # Übergibt Verbindungs-Parameter beim aufrufen der Klasse
 
@@ -326,13 +327,13 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     self.gpioner.ButtonBlink(23, 1, "ONOFF", True) #Lasse 'Schneiden' Button blinken bis Anwender darauf drückt
                     self.__confirmedstate = 'HW' #Bestätigungen sollten über die Hardware erfolgen
                 else:
-                    gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
+                    gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0] + safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
                     self._serial.sending(gcode, 0) #Sende direkt ersten Block an Maschine
                     self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                     self.blockbuttons = True #Alle Buttons sperren
                     self.__confirmedstate = 'SW' #Bestätigungen sollten über die Software erfolgen
             elif self.gcodeblock == 0 and confirmed == self.__confirmedstate:
-                gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
+                gcode = self.gcodestack[0].replace('<max_cut>', str(self.maxvlstack[0] + safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des ersten G-Code Blocks wenn vorhanden
                 self._serial.sending(gcode, 0) #Sende nach Bestätigung über Hardware ersten Block an Maschine
                 self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
             else:
@@ -345,7 +346,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.tools.infobar('INFO', "Bitte Vor-Ort an der Säge den nächsten Schnitt bestätigen")
                         self.blockbuttons = False #Alle Buttons freigeben
                     elif self.__confirmedstate == confirmed: #Anwender bestätigt neuen Schnitt
-                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
+                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock] + safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
                         self._serial.sending(gcode, 0) #Sende jeweils nächsten G-Code Block
                         self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                         self.blockbuttons = True #Alle Buttons sperren
@@ -356,7 +357,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                         self.tools.infobar('INFO', "Bitte in der Software den nächsten Schnitt bestätigen")
                         self.blockbuttons = False #Alle Buttons freigeben
                     elif self.__confirmedstate == confirmed: #Anwender bestätigt neuen Schnitt
-                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock] + _safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
+                        gcode = self.gcodestack[self.gcodeblock].replace('<max_cut>', str(self.maxvlstack[self.gcodeblock] + safety_blade_distance)) # Ersetzt <max_cut> mit maximaler Schnittweite des jeweils nächsten G-Code Blocks wenn vorhanden
                         self._serial.sending(gcode, 0) #Sende jeweils nächsten G-Code Block
                         self.gcodeblock += 1 #Abgearbeiteten Block hochzählen
                         self.blockbuttons = True #Alle Buttons sperren
@@ -372,6 +373,7 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
             self.__confirmedstate = None
             self.gcodeblock = 0
             self._status_items[1].set_value(0) #GtkLevelBar für G-Code Block Fortschritt wieder auf 0 setzen
+            self.blockbuttons = False #Alle Buttons freigeben
 
         else: # Falls Button "Sägevorgang abbrechen" gedrückt wird
             self.tools.verbose(self._verbose, "Sägevorgang wird abgebrochen", True)
@@ -499,10 +501,10 @@ class CommandsStack: # Klasse zum senden von vordefinierten G-Code abläufen
                     if materialthickness != None: #Materialstärke sollte ausgewählt sein
                         if self.__cutvalue and xvalue == self.__cutvalue: # Prüfe ob ein manuelles "Überschreiben" der max. Sägenposition vom Anwender vorliegt und auch an richtiger Position steht
                             maxdistance = self.__cutvalue #<max_cut> als Ausgangspunkt akzeptieren
-                            distance = 0 #Säge komplett einfahren lassen
+                            distance = xvalue #Säge komplett einfahren lassen
                         elif self.checkmaxcut_value and xvalue == self._settings['PDS']['Fahrbare_Strecke']: # Säge schneidet in rückwärts-Richtung und ist vollständig ausgefahren
                             maxdistance = self._settings['PDS']['Fahrbare_Strecke'] #momentane Position als Ausgangspunkt akzeptieren
-                            distance = 0 #Säge komplett einfahren lassen
+                            distance = xvalue #Säge komplett einfahren lassen
                         elif not self.checkmaxcut_value and xvalue <= 0: # Säge schneidet in vorwärts-Richtung und befindet sich im Schutzbereich
                             maxdistance = self._settings['PDS']['Fahrbare_Strecke'] #Platzhalter hier eigentlich nicht nötig, bei Verwendung dennoch belegen
                             distance = self._settings['PDS']['Fahrbare_Strecke'] #Säge komplett ausfahren lassen

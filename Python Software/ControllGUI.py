@@ -34,7 +34,7 @@ from CommandsStack import *
 gladefile = "ControllGUI_9.glade"
 oksig = "ok" # Marlin gibt dies als Bestätigung von Kommandos aus
 ps_off_sig = "M81" # G-Code zum Ausschalten der Spannungsversorgung
-ps_timeout = 120000 # Zeit in ms bis das Netzteil sich Ausschalten soll
+ps_timeout = 180000 # Zeit in ms bis das Netzteil sich Ausschalten soll
 checksequencetime = 1000 # Zeit in ms auf die nach Änderungen am Programm geprüft werden soll
 
 class Windows:
@@ -55,7 +55,6 @@ class Windows:
 
         #Variablen
         self.connected = False # Variable dessen Zustand der der seriellen Verbindung ist
-        self.timeoutcount = 0 # Variable die sich mit der timeout-Hauptschleife hochzählt
 
         #Verknüpfe Objekte der GUI mit Python
         #Bewegung
@@ -476,6 +475,8 @@ class Windows:
                             self.tools.verbose(self._verbose, "Kann empfangene Textzeile nicht lesen, scheinbar ist der Bytestring verrutscht, Arduino Resetten!")
                         elif entry[1] == 2: # Fehlercode "2" auswerten
                             self.tools.verbose(self._verbose, "Der IdleBuffer ist jetzt vollgelaufen, Arduino spamt Nachrichten!")
+                        elif entry[1] == 5: # Infocode "5" auswerten
+                            self.tools.infobar('INFO', "Arduino erfolgreich zurückgesetzt")
 
             if not self._serialsession.responsebuffer.empty(): # Prüfe auch ob der Responsebuffer Information enthält
                 while True: # alle bisher enthaltenen Objekte abholen
@@ -491,6 +492,8 @@ class Windows:
                             self.tools.verbose(self._verbose, "Keine Bestätigung erhalten, sende Zeile noch einmal...")
                         elif entry[1] == 3: # Fehlercode "3" auswerten
                             self.tools.verbose(self._verbose, "Kann erhaltene Textzeile vom seriellen Port nicht lesen")
+                        elif entry[1] == 4: # Fehlercode "4" Arduino Reset beauftragt
+                            self.gpioner.reset_arduino() # Resette Arduino über Reset-Pin
                         elif entry[1] == 10: #Auswertung gesendete/erhaltene Zeilen
                             if self._commandsstack.svprogress: #Wenn Schneidvorlage abgearbeitet wird, Fortschritt aktualisieren
                                 percentage = entry[3] / entry[2] #Wert für Fortschrittsanzeige 0-1
@@ -513,13 +516,13 @@ class Windows:
 
             if self._serialsession.supply == True: # Spannungsversorgung nur versuchen Auszuschalten wenn auch Eingeschaltet
                 if not self._commandsstack.svprogress: # Spannungsversorgung bei automatischen Abläufen nicht beeinflussen
-                    self.timeoutcount += 1 # timeout-Hauptschleife hochzählen so lange Netzteil noch Eingeschalten sein soll
-                if self.timeoutcount >= ps_timeout / checksequencetime: # Beim Erreichen des Intervals die Spannungsversorgung Ausschalten
+                    self._serialsession.timeoutcount += 1 # timeout-Hauptschleife hochzählen so lange Netzteil noch Eingeschalten sein soll
+                if self._serialsession.timeoutcount >= ps_timeout / checksequencetime: # Beim Erreichen des Intervals die Spannungsversorgung Ausschalten
                     self._serialsession.sending(ps_off_sig, False) # sende Kommando zum Ausschalten der Spannungsversorgung
                     self._serialsession.supply = False # Spannungsversorgung ist Ausgeschaltet
-                    self.timeoutcount = 0 # timeout-Hauptschleife zurücksetzen
+                    self._serialsession.timeoutcount = 0 # timeout-Hauptschleife zurücksetzen
 
-            print (str(self._serialsession.supply) + str(self.timeoutcount))
+            print (str(self._serialsession.supply) + str(self._serialsession.timeoutcount))
 
         except AttributeError: # Sollte noch keine serielle Verbindung bestehen, existieren die Objekte auch noch nicht
             pass

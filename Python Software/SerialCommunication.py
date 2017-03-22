@@ -31,6 +31,8 @@ except:
         print('kein pySerial gefunden, bitte mit "sudo apt-get install python3-serial" nachinstallieren! ')
 
 ps_on_sig = "M80" # G-Code zum Einschalten der Spannungsversorgung
+ps_on_delay = "G4 P1500" # G-Code nach Einschalten der Spannungsversorgung um folgende Aktionen zu verzögern
+infotext_after_arduino_reset = "start" # Textmeldung die ausgegeben wird wenn Arduino resettet
 
 class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die Serielle Schnittstelle
 
@@ -64,9 +66,12 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
 
             # Steuerung Spannungsversorgung
             self.supply = None # Zustand der Spannungsversorgung
+            self.timeoutcount = 0 # Zähler für Abschaltung Spannungsversorgung
 
+            # Sonstiges
             self.tools.verbose(self._verbose, "Öffne Serielle Verbindung auf Port: " + port) # Debug Info
             self.statuslabel.set_text("Verbinde...") # Ändere Label im Verbindungsfenster
+            self.readreset = False # Nicht auf Arduino Reset lauschen beim Systemstart
 
             try:
                 self.sc = serial.Serial(port=port, baudrate=baudrate, timeout=self._timeout) # Baue Serielle Verbindung auf
@@ -101,6 +106,9 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
                         response = self.sc.readline().strip().decode() # Decodiere empfangene Datensegmente nach Text
                         if response == "": # Leere Meldungen ignorieren
                             self.idlethread_stop.wait(1) # Warte jeweils 1 Sekunde um erneut auf Leitung zu lauschen, jedoch über das Event um den Thread bei Bedarf richtig schließen zu können
+                        elif self.readreset and infotext_after_arduino_reset in response: # Reset des Arudino durchgeführt
+                            self.idlebuffer.put((False, 5)) # Infomeldung: Arduino erfolgreich resettet
+                            self.readreset = False # nicht mehr darauf lauschen
                         else: # Ansonsten Input-Buffer leeren
                             self.idlebuffer.put((True, response, 3)) # Stelle erhaltene Text-Lines im Main-Loop Terminal dar
                     except:
@@ -117,14 +125,16 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
             self.reset() # Resette Arduino
             return True
 
-
+        #TODO G-Code Befehle definieren bei der die Spannungsversorgung eingeschaltet werden soll
         def sending(self, gcode, user=0): # Sendet GCode Zeilen in einem neuen Thread
             rows = 0 #zu sendende G-Code Zeilen auf 0 setzen
             self.writethread_stop = threading.Event()
             gcodelist = []
-            if not self.supply: #ist das Netzteil noch nicht eingeschaltet -> Einschalten #TODO G-Code Befehle definieren bei der die Spannungsversorgung eingeschaltet werden soll
-                gcode = ps_on_sig + '\n' + gcode #Kommando dafür den zu sendenen Befehl vorne anfügen
-                self.supply = True #Spannungsversorgung Eingeschaltet
+            if self.supply: #Timer zurücksetzen falls Spannungsversorgung schon Eingeschaltet 
+                self.timeoutcount = 0
+            else: #Ansonsten Spannungsversorgung Einschalten
+                gcode = ps_on_sig + '\n' + ps_on_delay + '\n' + gcode #Kommando dafür den zu sendenen Befehl vorne anfügen, nachfolgende Aktionen verzögern bis Spannungsversorgung vollständig Eingeschaltet
+                self.supply = True #Spannungsversorgung auf "Eingeschaltet" setzen
             for gcoderow in gcode.split('\n'): #Säubere G-Code Zeilen und zähle zu sendene Zeilen hoch für eine Fortschrittsanzeige
                 gcoderow = gcoderow.strip() # Entferne Whitespace
                 gcoderow = gcoderow.replace("\t",'') # Lösche Tabulatoren
@@ -170,7 +180,6 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
 
             if not self.sendingbuffer.empty(): # Falls noch Befehle zum senden anstehen, den nächsten Befehl abarbeiten
                 entry = self.sendingbuffer.get_nowait() # Befehl aus Buffer holen
-                print ("Führe noch einen Befehl aus")
                 self.write(entry[0], entry[1]) # Funktion noch einmal mit neuen Input ausführen
             self.startstopidle(True) # Lausche wieder auf Port nach Meldungen
             return
@@ -192,15 +201,10 @@ class SerialCommunication(): # Klasse zum senden/empfangen von G-Code über die 
                     self.responsebuffer.put((True, response, 0)) # Stelle erhaltenen Antwort-Text im Main-Loop Terminal dar
 
 
-        def reset(self): # Setzt den Arduino zurück 
+        def reset(self): # Setzt den Arduino zurück
             self.tools.verbose(self._verbose, "Setzte Arduino zurück...")
-            self.gpioner.reset_arduino() #Resette Arduino über den Reset-Pin
-            status = self.read("Start") #Lauscht auf 'Start' Antwort vom Arduino
-            if status:
-                self.tools.infobar('INFO', "Arduino erfolgreich zurückgesetzt")
-            else:
-                self.tools.verbose(self._verbose, "Arduino konnte nicht zurückgesetzt werden", True)
-
+            self.responsebuffer.put((False, 4)) # Fordere Arduino-Reset über den Reset-Pin an
+            self.readreset = True # Lasse auf Antwort lauschen
 
         def terminate(self): # Schließt serielle Kommunikation mit dem Arduino
             self.tools.verbose(self._verbose, "Schließe serielle Verbindung mit Arduino")

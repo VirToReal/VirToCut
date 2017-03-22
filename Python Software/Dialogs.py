@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#VirToCut - Controlsoftware for dynamical Plate-Saw-Machine
+#VirToCut - Controlsoftware for a dynamical Plate-Saw-Machine
 #Copyright (C) 2016  Benjamin Hirmer - hardy at virtoreal.net
 
 #This program is free software: you can redistribute it and/or modify
@@ -70,7 +70,7 @@ class DIA_CONFIG: #Klasse für Konfigurations-Dialog
         self.nb_pm_pds_nzsa = self.builder.get_object("NB_PM_PDS_NZSA") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Nachlaufzeit Säge
         self.nb_pm_pds_nzst = self.builder.get_object("NB_PM_PDS_NZST") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Nachlaufzeit Staubsauger
         self.nb_pm_pds_fs = self.builder.get_object("NB_PM_PDS_FS") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Fahrbare Strecke
-        self.nb_pm_pds_asm = self.builer.get_object("NB_PM_PDS_ASM") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Abstand Sägeblatt zum Materialanschlag
+        self.nb_pm_pds_asm = self.builder.get_object("NB_PM_PDS_ASM") #Spin-Button - Notebook/Parameter/Parametrieren der Säge/Abstand Sägeblatt zum Materialanschlag
 
         self.nb_pm_pdv_bv = self.builder.get_object("NB_PM_PDV_BV") #Spin-Button - Notebook/Parameter/Parametrieren des Vorschubs/Be,-Endschleunigung des Vorschub-Anschlags
         self.nb_pm_pdv_fs = self.builder.get_object("NB_PM_PDV_FS") #Spin-Button - Notebook/Parameter/Parametrieren des Vorschubs/Fahrbare Strecke
