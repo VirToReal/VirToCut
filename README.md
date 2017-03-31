@@ -11,7 +11,7 @@ To get this project to work, you need some experience in printing parts with a 3
 ## Software used in this project
 I use Python to send G-Code-Commands from the Raspberry-Pi to the Arduino over a serial interface. Marlin (http://marlinfw.org) is running on the Arduino and interprets the received G-Code-Commands and drives the engines with the RAMPS1.4 Shield (http://reprap.org/wiki/RAMPS_1.4). My Marlin-Configuration can be found in the "Marlin Firmware"-Folder. 
 
-The Python-Software can be found in the "Python Software"-Folder. At the moment its only available in German. If its necessary, I will rewrite it in english, too. The Software is already able to generate saw-pattern-templates, to cut a plate in different sized plates on its own. 
+The Python-Software can be found in the "Python Software"-Folder. At the moment its only available in German. If its necessary, I will rewrite it in english, too. The Software is already able to generate saw-pattern-templates, to cut a plate in different sized plates automatically. 
 
 - Homescreen
 
@@ -23,3 +23,4 @@ The Python-Software can be found in the "Python Software"-Folder. At the moment 
 ![Config2](https://github.com/VirToReal/VirToCut/blob/master/Images/PythonSoftware_Config_2.png)
 ![Config3](https://github.com/VirToReal/VirToCut/blob/master/Images/PythonSoftware_Config_3.png)
 
+Contact me if you want futher informations!
