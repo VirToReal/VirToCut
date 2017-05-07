@@ -23,4 +23,10 @@ The Python-Software can be found in the "Python Software"-Folder. At the moment 
 ![Config2](https://github.com/VirToReal/VirToCut/blob/master/Images/PythonSoftware_Config_2.png)
 ![Config3](https://github.com/VirToReal/VirToCut/blob/master/Images/PythonSoftware_Config_3.png)
 
+But consider, the project is not fully completed yet. Some smaller improvements still has to be made:
+- Structure on the material feeder, which prevents the material from rotating. Thought on something like a feather tensioned clamp. 
+- Some smaller software updates (don't find the time at the moment). 
+
+  Any help would be appreciated.
+
 Contact me if you want futher informations!
