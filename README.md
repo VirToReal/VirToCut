@@ -1,4 +1,28 @@
 # VirToCut
+## What is this?
+This is a Plate Saw Machine, which cuts straight stripes from a plate. The machine can be controlled via Software automatically, or trough the software/control-panel manually. The cutting-distance of the saw blade and the material feed, too. The thickness of the saw blade will be added automatically in manual-mode.
+
+To control the saw via software in automatic-mode, you can use a code syntax i developed for this machine which will look like that:
+```
+A50 B300 // Feed Material 50mm and cut into that material 300mm.
+A50 B300
+A30 B300
+A30 B300
+A10 B300
+ROTATE // Saw stops, user have to rotate the plate 90°, some visual assistance shows user which stripes have to be placed into the machine (not ready yet) and confirms via software/hardware- button.
+A100 B100
+A100 B100
+WAIT // Saw stops, user have to place a new pair of stripes into the machine and confirms to proceed.
+A80 B60
+A80 B60
+WAIT // Saw stops, user have to place a new pair of stripes into the machine and confirms to proceed.
+A50 B20
+A50 B20
+A50 B20
+```
+The result will look like this:
+![Cutting_Template](https://github.com/VirToReal/VirToCut/blob/master/Images/Cutting_Template.png)
+
 ## About the project
 This is a project about building and controlling a Plate Saw Machine. You can generate your own components by using the "ConstructionTemplate.scad"-File with OpenSCAD (http://www.openscad.org). Every component are adjustable in their dimensions as described in the “OpenScadDokumentation”-Folder. In OpenSCAD you also able to switch between the complete overview as the picture below and each single printable part as listened in the “OpenScadDokumentation”-Folder by using the “printmode”-Variable within the “ConstructionTemplate.scad”-File. All details are described in the file itself. 
 
