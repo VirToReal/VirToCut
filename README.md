@@ -1,6 +1,7 @@
 # VirToCut
 
 ![OpenSCAD_Preview](https://github.com/VirToReal/VirToCut/blob/master/Images/PlateSawMachine_Transp.png)
+[![YouTube Video](http://img.youtube.com/vi/xQ6T13urcc0/0.jpg)](https://youtu.be/xQ6T13urcc0)
 
 ## What is this?
 This is a Plate Saw Machine, which cuts straight stripes from a plate. The machine can be controlled via Software automatically, or trough the software/control-panel manually. The cutting-distance of the saw blade and the material feed, too. The thickness of the saw blade will be added automatically in manual-mode.
