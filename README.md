@@ -40,7 +40,7 @@ This is a project about building and controlling a Plate Saw Machine. You can ge
 ![Constructed](https://github.com/VirToReal/VirToCut/blob/master/Images/PlateSawMachine_Contructed.png)
 
 ## Necessary experience and software
-To get this project to work, you need some experience in printing parts with a 3D-Printer. Also some knowledge in electrical engineering are required, because you have to make a PCB and wire up a power-supply, raspberry-pi and an arduino-mega-2560 + ramps-shield. My files for milling/etching the PCB are to be found in the "KiCad"-Folder. The Files can be edited with the KiCad-Software (http://kicad-pcb.org). I used FlatCam (http://flatcam.org) to mill the "Gerber"-Files from KiCad.
+To get this project to work, you need some experience in printing parts with a 3D-Printer. Also some knowledge in electrical engineering are required, because you have to make a PCB and wire up a power-supply, raspberry-pi and an arduino-mega-2560 + ramps-shield. My files for milling/etching the PCB are to be found in the "KiCad"-Folder. The Files can be edited with the KiCad-Software (http://kicad.org). I used FlatCam (http://flatcam.org) to mill the "Gerber"-Files from KiCad.
 
 ## Software used in this project
 I use Python to send G-Code-Commands from the Raspberry-Pi to the Arduino over a serial interface. Marlin (http://marlinfw.org) is running on the Arduino and interprets the received G-Code-Commands and drives the engines with the RAMPS1.4 Shield (http://reprap.org/wiki/RAMPS_1.4). My Marlin-Configuration can be found in the "Marlin Firmware"-Folder. 
